@@ -16,10 +16,11 @@ avconv will guess the format according to given extension
 compressed and raw image messages are supportet with mono8 and bgr8/rgb8
 
 ## Example output:
-``rosbag2video.py -r 50 -o test.mp4 peng_2015-12-14-13-*.bag
+
+rosbag2video.py -r 50 -o test.mp4 peng_2015-12-14-13-*.bag
 using  50.0  FPS
 /cam_peng/color_rect/image_raw/compressed  with datatype: sensor_msgs/CompressedImage
-############# USING ######################
+\#\#\#\#\#\#\#\#\#\#\#\#\# USING \#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#\#
 avconv version 9.18-6:9.18-0ubuntu0.14.04.1, Copyright (c) 2000-2014 the Libav developers
   built on Mar 16 2015 13:20:58 with gcc 4.8 (Ubuntu 4.8.2-19ubuntu1)
 [mjpeg @ 0x8a92ee0] Estimating duration from bitrate, this may be inaccurate
@@ -37,4 +38,4 @@ Output #0, mp4, to 'test.mp4':
 Stream mapping:
   Stream #0:0 -> #0:0 (mjpeg -> libx264)
 Press ctrl-c to stop encoding
-Cframe=   44 fps=  4 q=0.0 Lsize=     365kB time=0.84 bitrate=3558.5kbits/s    s/s    ``
+Cframe=   44 fps=  4 q=0.0 Lsize=     365kB time=0.84 bitrate=3558.5kbits/s    s/s
