@@ -157,7 +157,7 @@ for files in range(0,len(opt_files)):
                         print 'unsuportet encoding:', msg.encoding
                         exit(1)
                         
-                    if len(data>0):                    
+                    if len(msg.data)>0:                    
                         if not topic in t_first :
                             t_first[topic] = t;
                             t_video[topic] = 0;
