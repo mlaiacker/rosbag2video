@@ -25,14 +25,15 @@ import shlex, subprocess
 opt_fps =25.0
 opt_out_file=""
 opt_fourcc = "XVID"
+opt_topic = ""
 opt_files = []
 opt_display_images = False;
 def print_help():
     print
-    print 'rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] bagfile1 [bagfile2] ...'
+    print 'rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...'
     print
     print 'converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv'
-    print 'avconv needs to be installed!'
+    print 'avconv needs to be installed! (sudo apt-get install libav-tools)'
     print 'if no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264'
     print 'multiple image topics are supportet only when -o option is _not_ used'
     print 'avconv will guess the format according to given extension'
@@ -46,7 +47,7 @@ if len(sys.argv) < 2:
     exit(1)
 else :
    try:
-      opts, opt_files = getopt.getopt(sys.argv[1:],"hsr:o:c:",["fps=","ofile=","codec="])
+      opts, opt_files = getopt.getopt(sys.argv[1:],"hsr:o:c:t:",["fps=","ofile=","codec=","topic="])
    except getopt.GetoptError:
       print_help()
       sys.exit(2)
@@ -62,24 +63,29 @@ else :
          opt_out_file = arg
       elif opt in ("-c", "--codec"):
          opt_fourcc = arg
+      elif opt in ("-t", "--topic"):
+         opt_topic = arg
       else:
           print "opz:", opt,'arg:', arg
          
  
 def filter_image_msgs(topic, datatype, md5sum, msg_def, header):
     if(datatype=="sensor_msgs/CompressedImage"):
-        print topic,' with datatype:', str(datatype)
-        print "############# USING ######################" 
-        return True;
+        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
+            print "############# USING ######################" 
+            print topic,' with datatype:', str(datatype)
+            return True;
     if(datatype=="theora_image_transport/Packet"):
-        print topic,' with datatype:', str(datatype)
-#        print "############# USING ######################"
-        print '!!! theora not supportet, sorry !!!' 
-        return False;
+        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
+            print topic,' with datatype:', str(datatype)
+#            print "############# USING ######################"
+            print '!!! theora not supportet, sorry !!!' 
+            return False;
     if(datatype=="sensor_msgs/Image"):
-        print topic,' with datatype:', str(datatype)
-        print "############# USING ######################" 
-        return True;    
+        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
+            print "############# USING ######################" 
+            print topic,' with datatype:', str(datatype)
+            return True;    
     return False;
 
 t_first={};
