@@ -6,7 +6,7 @@
     post@mlaiacker.de
 
 ##uasge:
-rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] bagfile1 [bagfile2] ...
+rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
 
     converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv
     avconv needs to be installed!
@@ -14,6 +14,9 @@ rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] bagfile1 [bagfile2]
     multiple image topics are supportet only when -o option is _not_ used
     avconv will guess the format according to given extension
     compressed and raw image messages are supportet with mono8 and bgr8/rgb8
+    
+    -t topic
+    only the images from topic "topic" are used for the video output
 
 ##example output:
 
