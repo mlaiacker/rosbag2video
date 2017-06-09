@@ -5,7 +5,7 @@
     by Maximilian Laiacker 2016
     post@mlaiacker.de
 
-##uasge:
+## usage:
 rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
 
     converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv
@@ -18,7 +18,7 @@ rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1
     -t topic
     only the images from topic "topic" are used for the video output
 
-##example output:
+## example output:
 
     rosbag2video.py -r 50 -o test.mp4 peng_2015-12-14-13-*.bag
     using  50.0  FPS
