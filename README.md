@@ -4,6 +4,13 @@
     rosbag to video file conversion tool 
     by Maximilian Laiacker 2016
     post@mlaiacker.de
+## install:
+
+avconv is needed and can be installed on Ubuntu with:
+
+    sudo apt install libav-tools
+
+
 
 ## usage:
 rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
