@@ -35,7 +35,7 @@ def print_help():
     print 'converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv'
     print 'avconv needs to be installed! (sudo apt-get install libav-tools)'
     print 'if no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264'
-    print 'multiple image topics are supportet only when -o option is _not_ used'
+    print 'multiple image topics are supported only when -o option is _not_ used'
     print 'avconv will guess the format according to given extension'
     print 'compressed and raw image messages are supportet with mono8 and bgr8/rgb8'
     print 'Maximilian Laiacker 2016'
