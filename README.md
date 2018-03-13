@@ -15,19 +15,19 @@ avconv is needed and can be installed on Ubuntu with:
 ## usage:
 rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
 
-    converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv
+    rosbag2video converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv.
     avconv needs to be installed!
-    if no output file (-o) is given the filename '<topic>.mp4' is used and default output codec is h264
-    multiple image topics are supportet only when -o option is _not_ used
-    avconv will guess the format according to given extension
-    compressed and raw image messages are supportet with mono8 and bgr8/rgb8
+    If no output file (-o) is given the filename '<topic>.mp4' is used and default output codec is h264.
+    Multiple image topics are supported only when -o option is _not_ used.
+    avconv will guess the format according to given file extension.
+    Compressed and raw image messages are supportet with mono8 and bgr8/rgb8.
     
     -t topic
     only the images from topic "topic" are used for the video output
 
 ## example output:
 
-    rosbag2video.py -r 50 -o test.mp4 peng_2015-12-14-13-*.bag
+    >rosbag2video.py -r 50 -o test.mp4 peng_2015-12-14-13-*.bag
     using  50.0  FPS
     /cam_peng/color_rect/image_raw/compressed  with datatype: sensor_msgs/CompressedImage
     ############# USING ######################
