@@ -2,12 +2,12 @@
 
 """
 rosbag2video.py
-rosbag to video file conversion tool 
+rosbag to video file conversion tool
 by Maximilian Laiacker 2016
 post@mlaiacker.de
 """
 
-import roslib 
+import roslib
 roslib.load_manifest('rosbag')
 import rosbag
 import sys, getopt
@@ -20,8 +20,8 @@ import cv2
 import numpy as np
 
 import shlex, subprocess
- 
- 
+
+
 opt_fps =25.0
 opt_out_file=""
 opt_fourcc = "XVID"
@@ -67,25 +67,25 @@ else :
          opt_topic = arg
       else:
           print "opz:", opt,'arg:', arg
-         
- 
+
+
 def filter_image_msgs(topic, datatype, md5sum, msg_def, header):
     if(datatype=="sensor_msgs/CompressedImage"):
         if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
-            print "############# USING ######################" 
+            print "############# USING ######################"
             print topic,' with datatype:', str(datatype)
             return True;
     if(datatype=="theora_image_transport/Packet"):
         if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
             print topic,' with datatype:', str(datatype)
 #            print "############# USING ######################"
-            print '!!! theora not supportet, sorry !!!' 
+            print '!!! theora not supportet, sorry !!!'
             return False;
     if(datatype=="sensor_msgs/Image"):
         if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
-            print "############# USING ######################" 
+            print "############# USING ######################"
             print topic,' with datatype:', str(datatype)
-            return True;    
+            return True;
     return False;
 
 t_first={};
@@ -95,7 +95,7 @@ cv_image = []
 np_arr = []
 if (opt_fps<=0):
     opt_fps = 1
-print "using ",opt_fps," FPS" 
+print "using ",opt_fps," FPS"
 
 p_avconv = {}
 bridge = CvBridge()
@@ -117,11 +117,11 @@ for files in range(0,len(opt_files)):
                     if opt_display_images:
                         np_arr = np.fromstring(msg.data, np.uint8)
                         cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-                else:         
+                else:
                     print 'unsuportet format:', msg.format
                     exit(1)
-                    
-                if len(msg.data)>0:                    
+
+                if len(msg.data)>0:
                     if not topic in t_first :
                         t_first[topic] = t;
                         t_video[topic] = 0;
@@ -134,20 +134,20 @@ for files in range(0,len(opt_files)):
                             else:
                                 out_file = opt_out_file
                             p_avconv[topic] = subprocess.Popen(['avconv','-r',str(opt_fps),'-an','-c','mjpeg','-f','mjpeg','-i','-',out_file],stdin=subprocess.PIPE)
-                        p_avconv[topic].stdin.write(msg.data)                      
+                        p_avconv[topic].stdin.write(msg.data)
                         t_video[topic] += 1.0/opt_fps
-                    if opt_display_images: 
+                    if opt_display_images:
                         cv2.imshow(topic, cv_image)
                         key=cv2.waitKey(1)
                         if key==1048603:
                             exit(1);
         except AttributeError:
-            try:    
+            try:
                     pix_fmt=""
                     if msg.encoding.find("mono8")!=-1 :
                         pix_fmt = "gray"
                         #np_arr = np.fromstring(msg.data, np.uint8)
-                        if opt_display_images: 
+                        if opt_display_images:
                             cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
                     elif msg.encoding.find("bgr8")!=-1 :
                         pix_fmt = "bgr24"
@@ -159,11 +159,11 @@ for files in range(0,len(opt_files)):
                         #np_arr = np.fromstring(msg.data, np.uint8)
                         if opt_display_images:
                             cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-                    else:         
+                    else:
                         print 'unsuportet encoding:', msg.encoding
                         exit(1)
-                        
-                    if len(msg.data)>0:                    
+
+                    if len(msg.data)>0:
                         if not topic in t_first :
                             t_first[topic] = t;
                             t_video[topic] = 0;
@@ -177,8 +177,8 @@ for files in range(0,len(opt_files)):
                                     out_file = opt_out_file
                                 size = str(msg.width)+"x"+str(msg.height)
                                 p_avconv[topic] = subprocess.Popen(['avconv','-r',str(opt_fps),'-an','-f','rawvideo','-s',size,'-pix_fmt', pix_fmt,'-i','-',out_file],stdin=subprocess.PIPE)
-                            p_avconv[topic].stdin.write(msg.data)                      
-                            t_video[topic] += 1.0/opt_fps 
+                            p_avconv[topic].stdin.write(msg.data)
+                            t_video[topic] += 1.0/opt_fps
                         if opt_display_images:
                             cv2.imshow(topic, cv_image)
                             key=cv2.waitKey(1)
@@ -187,6 +187,6 @@ for files in range(0,len(opt_files)):
             except AttributeError:
                 # maybe theora packet
                 # theora not supportet
-                pass 
-     
+                pass
+
     bag.close();
