@@ -23,6 +23,7 @@ import shlex, subprocess
 
 
 opt_fps =25.0
+opt_rate = 1
 opt_out_file=""
 opt_fourcc = "XVID"
 opt_topic = ""
@@ -30,7 +31,7 @@ opt_files = []
 opt_display_images = False;
 def print_help():
     print
-    print 'rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...'
+    print 'rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...'
     print
     print 'converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv'
     print 'avconv needs to be installed! (sudo apt-get install libav-tools)'
@@ -47,7 +48,7 @@ if len(sys.argv) < 2:
     exit(1)
 else :
    try:
-      opts, opt_files = getopt.getopt(sys.argv[1:],"hsr:o:c:t:",["fps=","ofile=","codec=","topic="])
+      opts, opt_files = getopt.getopt(sys.argv[1:],"hsr:o:c:t:",["fps=","rate=","ofile=","codec=","topic="])
    except getopt.GetoptError:
       print_help()
       sys.exit(2)
@@ -59,6 +60,8 @@ else :
           opt_display_images = True
       elif opt in ("-r", "--fps"):
          opt_fps = float(arg)
+      elif opt in ("--rate"):
+         opt_rate = float(arg)
       elif opt in ("-o", "--ofile"):
          opt_out_file = arg
       elif opt in ("-c", "--codec"):
@@ -95,6 +98,8 @@ cv_image = []
 np_arr = []
 if (opt_fps<=0):
     opt_fps = 1
+if (opt_rate<=0):
+    opt_rate = 1
 print "using ",opt_fps," FPS"
 
 p_avconv = {}
@@ -127,7 +132,7 @@ for files in range(0,len(opt_files)):
                         t_video[topic] = 0;
                         t_file[topic] = 0
                     t_file[topic] = (t-t_first[topic]).to_sec()
-                    while t_video[topic]<t_file[topic]:
+                    while t_video[topic]<t_file[topic]/opt_rate:
                         if not topic in p_avconv:
                             if opt_out_file=="":
                                 out_file = str(topic).replace("/", "")+".mp4"
@@ -169,7 +174,7 @@ for files in range(0,len(opt_files)):
                             t_video[topic] = 0;
                             t_file[topic] = 0
                         t_file[topic] = (t-t_first[topic]).to_sec()
-                        while t_video[topic]<t_file[topic]:
+                        while t_video[topic]<t_file[topic]/opt_rate:
                             if not topic in p_avconv:
                                 if opt_out_file=="":
                                     out_file = str(topic).replace("/", "")+".mp4"
