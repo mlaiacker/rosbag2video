@@ -13,7 +13,7 @@ avconv is needed and can be installed on Ubuntu with:
 
 
 ## usage:
-rosbag2video.py [--fps 25] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
+rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
 
     rosbag2video converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv.
     avconv needs to be installed!
