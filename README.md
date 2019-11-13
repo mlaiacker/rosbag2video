@@ -1,9 +1,13 @@
 # rosbag2video
 
     rosbag2video.py
-    rosbag to video file conversion tool 
-    by Maximilian Laiacker 2016
+    rosbag to video file conversion tool
+    by Abel Gabor 2019
+    baquatelle@gmail.com
+
+    based on the tool by Maximilian Laiacker 2016
     post@mlaiacker.de
+
 ## install:
 
 avconv is needed and can be installed on Ubuntu with:
@@ -21,7 +25,7 @@ rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-s (show video)] [-t topi
     Multiple image topics are supported only when -o option is _not_ used.
     avconv will guess the format according to given file extension.
     Compressed and raw image messages are supportet with mono8 and bgr8/rgb8.
-    
+
     -t topic
     only the images from topic "topic" are used for the video output
 
