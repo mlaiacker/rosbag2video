@@ -209,6 +209,11 @@ for files in range(0,len(opt_files)):
                         #np_arr = np.fromstring(msg.data, np.uint8)
                         if opt_display_images:
                             cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+                    elif msg.encoding.find("bggr8")!=-1 :
+                        pix_fmt = "bayer_bggr8"
+                        #np_arr = np.fromstring(msg.data, np.uint8)
+                        if opt_display_images:
+                            cv_image = bridge.imgmsg_to_cv2(msg, "bayer_bggr8")
                     elif msg.encoding.find("rgb8")!=-1 :
                         pix_fmt = "rgb24"
                         #np_arr = np.fromstring(msg.data, np.uint8)
