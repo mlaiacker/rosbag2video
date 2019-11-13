@@ -42,9 +42,9 @@ def print_help():
     print 'if no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264'
     print 'multiple image topics are supported only when -o option is _not_ used'
     print 'avconv will guess the format according to given extension'
-    print 'compressed and raw image messages are supported with mono8 and bgr8/rgb8'
-    print 'Maximilian Laiacker 2016'
-
+    print 'compressed and raw image messages are supported with mono8 and bgr8/rgb8/bggr8'
+    print 'Abel Gabor 2019, based on the tool by Maximilian Laiacker 2016'
+    
 if len(sys.argv) < 2:
     print 'Please specify ros bag file(s)'
     print 'For example:'
