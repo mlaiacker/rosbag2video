@@ -113,6 +113,61 @@ def filter_image_msgs(topic, datatype, md5sum, msg_def, header):
             
     return False;
 
+MJPEG_VIDEO = 1
+RAWIMAGE_VIDEO = 2
+VIDEO_CONVERTER_TO_USE = "ffmpeg" # or you may want to use "avconv"
+
+def write_output_video(msg, topic, t, cv_image, video_fmt, pix_fmt = ""):
+    if len(msg.data) == 0 :
+        return;
+        
+    if not topic in t_first :
+        t_first[topic] = t;
+        t_video[topic] = 0;
+        t_file[topic] = 0
+ 
+    t_file[topic] = (t-t_first[topic]).to_sec()
+    
+    while t_video[topic] < t_file[topic]/opt_rate :
+        if not topic in p_avconv:
+            if opt_verbose :
+                print "Initializing pipe for topic ", topic, "."
+                
+            if opt_out_file=="":
+                out_file = str(topic).replace("/", "_")+".mp4"
+            else:
+                out_file = opt_out_file
+
+            if opt_verbose :
+                print "Using output file ", out_file, " for topic ", topic, "."
+                            
+            if video_fmt == MJPEG_VIDEO :
+                p_avconv[topic] = subprocess.Popen([VIDEO_CONVERTER_TO_USE,'-r',str(opt_fps),'-c','mjpeg','-f','mjpeg','-i','-','-an',out_file],stdin=subprocess.PIPE)
+                if opt_verbose :
+                    print "Using command line:"
+                    print VIDEO_CONVERTER_TO_USE,"-r", str(opt_fps), "-c mjpeg -f mjpeg -i - -an", out_file
+            elif video_fmt == RAWIMAGE_VIDEO :
+                size = str(msg.width)+"x"+str(msg.height)
+                p_avconv[topic] = subprocess.Popen([VIDEO_CONVERTER_TO_USE,'-r',str(opt_fps),'-f','rawvideo','-s',size,'-pix_fmt', pix_fmt,'-i','-','-an',out_file],stdin=subprocess.PIPE)
+                if opt_verbose :
+                    print "Using command line:"
+                    print VIDEO_CONVERTER_TO_USE,"-r", str(opt_fps), "-f rawvideo -s", size, "-pix_fmt", pix_fmt, "-i - -an", out_file
+                
+            else :
+                print "Script error, unknown value for argument video_fmt in function write_output_video."
+                exit(1)
+            
+        p_avconv[topic].stdin.write(msg.data)
+        t_video[topic] += 1.0/opt_fps
+ 
+    if opt_display_images:
+        cv2.imshow(topic, cv_image)
+        
+        key=cv2.waitKey(1)
+        if key==1048603:
+            exit(1);
+
+
 for files in range(0,len(opt_files)):
     #First arg is the bag to look at
     bagfile = opt_files[files]
@@ -139,26 +194,8 @@ for files in range(0,len(opt_files)):
                     print 'unsupported jpeg format: ', msg.format, '.'
                     exit(1)
 
-                if len(msg.data)>0:
-                    if not topic in t_first :
-                        t_first[topic] = t;
-                        t_video[topic] = 0;
-                        t_file[topic] = 0
-                    t_file[topic] = (t-t_first[topic]).to_sec()
-                    while t_video[topic]<t_file[topic]/opt_rate:
-                        if not topic in p_avconv:
-                            if opt_out_file=="":
-                                out_file = str(topic).replace("/", "")+".mp4"
-                            else:
-                                out_file = opt_out_file
-                            p_avconv[topic] = subprocess.Popen(['avconv','-r',str(opt_fps),'-an','-c','mjpeg','-f','mjpeg','-i','-',out_file],stdin=subprocess.PIPE)
-                        p_avconv[topic].stdin.write(msg.data)
-                        t_video[topic] += 1.0/opt_fps
-                    if opt_display_images:
-                        cv2.imshow(topic, cv_image)
-                        key=cv2.waitKey(1)
-                        if key==1048603:
-                            exit(1);
+                write_output_video( msg, topic, t, MJPEG_VIDEO )
+                    
         except AttributeError:
             try:
                     pix_fmt=""
@@ -181,27 +218,8 @@ for files in range(0,len(opt_files)):
                         print 'unsupported encoding:', msg.encoding
                         exit(1)
 
-                    if len(msg.data)>0:
-                        if not topic in t_first :
-                            t_first[topic] = t;
-                            t_video[topic] = 0;
-                            t_file[topic] = 0
-                        t_file[topic] = (t-t_first[topic]).to_sec()
-                        while t_video[topic]<t_file[topic]/opt_rate:
-                            if not topic in p_avconv:
-                                if opt_out_file=="":
-                                    out_file = str(topic).replace("/", "")+".mp4"
-                                else:
-                                    out_file = opt_out_file
-                                size = str(msg.width)+"x"+str(msg.height)
-                                p_avconv[topic] = subprocess.Popen(['avconv','-r',str(opt_fps),'-an','-f','rawvideo','-s',size,'-pix_fmt', pix_fmt,'-i','-',out_file],stdin=subprocess.PIPE)
-                            p_avconv[topic].stdin.write(msg.data)
-                            t_video[topic] += 1.0/opt_fps
-                        if opt_display_images:
-                            cv2.imshow(topic, cv_image)
-                            key=cv2.waitKey(1)
-                            if key==1048603:
-                                exit(1);
+                    write_output_video( msg, topic, t, cv_image, RAWIMAGE_VIDEO, pix_fmt )
+
             except AttributeError:
                 # maybe theora packet
                 # theora not supportet

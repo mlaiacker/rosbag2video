@@ -10,17 +10,19 @@
 
 ## install:
 
-avconv is needed and can be installed on Ubuntu with:
+avconv or ffmpeg is needed and can be installed on Ubuntu with:
 
     sudo apt install libav-tools
+    or
+    sudo apt install ffmpeg
 
 
 
 ## usage:
 rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v (verbose messages)] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...
 
-    rosbag2video converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv.
-    avconv needs to be installed!
+    rosbag2video converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv or ffmpeg.
+    One of avconf or ffmpeg needs to be installed!
     If no output file (-o) is given the filename '<topic>.mp4' is used and default output codec is h264.
     Multiple image topics are supported only when -o option is _not_ used.
     avconv will guess the format according to given file extension.
