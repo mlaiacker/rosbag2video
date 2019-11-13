@@ -3,9 +3,11 @@
 """
 rosbag2video.py
 rosbag to video file conversion tool
-by Maximilian Laiacker 2016
-post@mlaiacker.de
-"""
+by Abel Gabor 2019
+baquatelle@gmail.com
+
+based on the tool by Maximilian Laiacker 2016
+post@mlaiacker.de"""
 
 import roslib
 roslib.load_manifest('rosbag')
@@ -38,7 +40,7 @@ def print_help():
     print 'if no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264'
     print 'multiple image topics are supported only when -o option is _not_ used'
     print 'avconv will guess the format according to given extension'
-    print 'compressed and raw image messages are supportet with mono8 and bgr8/rgb8'
+    print 'compressed and raw image messages are supported with mono8 and bgr8/rgb8'
     print 'Maximilian Laiacker 2016'
 
 if len(sys.argv) < 2:
@@ -72,25 +74,6 @@ else :
           print "opz:", opt,'arg:', arg
 
 
-def filter_image_msgs(topic, datatype, md5sum, msg_def, header):
-    if(datatype=="sensor_msgs/CompressedImage"):
-        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
-            print "############# USING ######################"
-            print topic,' with datatype:', str(datatype)
-            return True;
-    if(datatype=="theora_image_transport/Packet"):
-        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
-            print topic,' with datatype:', str(datatype)
-#            print "############# USING ######################"
-            print '!!! theora not supportet, sorry !!!'
-            return False;
-    if(datatype=="sensor_msgs/Image"):
-        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
-            print "############# USING ######################"
-            print topic,' with datatype:', str(datatype)
-            return True;
-    return False;
-
 t_first={};
 t_file={};
 t_video={}
@@ -104,6 +87,27 @@ print "using ",opt_fps," FPS"
 
 p_avconv = {}
 bridge = CvBridge()
+
+def filter_image_msgs(topic, datatype, md5sum, msg_def, header):
+    if(datatype=="sensor_msgs/CompressedImage"):
+        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
+            print "############# COMPRESSED IMAGE  ######################"
+            print topic,' with datatype:', str(datatype)
+            return True;
+            
+    if(datatype=="theora_image_transport/Packet"):
+        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
+            print topic,' with datatype:', str(datatype)
+            print '!!! theora is not supported, sorry !!!'
+            return False;
+            
+    if(datatype=="sensor_msgs/Image"):
+        if (opt_topic != "" and opt_topic == topic) or opt_topic == "":
+            print "############# UNCOMPRESSED IMAGE ######################"
+            print topic,' with datatype:', str(datatype)
+            return True;
+            
+    return False;
 
 for files in range(0,len(opt_files)):
     #First arg is the bag to look at
