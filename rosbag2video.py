@@ -31,9 +31,11 @@ opt_fourcc = "XVID"
 opt_topic = ""
 opt_files = []
 opt_display_images = False;
+opt_verbose = False;
+
 def print_help():
     print
-    print 'rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...'
+    print 'rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v (verbose messages)] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...'
     print
     print 'converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv'
     print 'avconv needs to be installed! (sudo apt-get install libav-tools)'
@@ -50,7 +52,7 @@ if len(sys.argv) < 2:
     exit(1)
 else :
    try:
-      opts, opt_files = getopt.getopt(sys.argv[1:],"hsr:o:c:t:",["fps=","rate=","ofile=","codec=","topic="])
+      opts, opt_files = getopt.getopt(sys.argv[1:],"hsvr:o:c:t:",["fps=","rate=","ofile=","codec=","topic="])
    except getopt.GetoptError:
       print_help()
       sys.exit(2)
@@ -60,6 +62,8 @@ else :
          sys.exit()
       elif opt == '-s':
           opt_display_images = True
+      elif opt == '-v':
+          opt_verbose = True
       elif opt in ("-r", "--fps"):
          opt_fps = float(arg)
       elif opt in ("--rate"):
@@ -112,10 +116,15 @@ def filter_image_msgs(topic, datatype, md5sum, msg_def, header):
 for files in range(0,len(opt_files)):
     #First arg is the bag to look at
     bagfile = opt_files[files]
+    if opt_verbose :
+        print "Bagfile: {}".format(bagfile)
+        
     #Go through the bag file
     bag = rosbag.Bag(bagfile)
+    if opt_verbose :
+        print "Bag opened."
+
     for topic, msg, t in bag.read_messages(connection_filter=filter_image_msgs):
-    #        print topic, 'at', str(t)#,'msg=', str(msg)
         try:
             if msg.format.find("jpeg")!=-1 :
                 if msg.format.find("8")!=-1 and (msg.format.find("rgb")!=-1 or msg.format.find("bgr")!=-1):
@@ -127,7 +136,7 @@ for files in range(0,len(opt_files)):
                         np_arr = np.fromstring(msg.data, np.uint8)
                         cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
                 else:
-                    print 'unsuportet format:', msg.format
+                    print 'unsupported jpeg format: ', msg.format, '.'
                     exit(1)
 
                 if len(msg.data)>0:
@@ -169,7 +178,7 @@ for files in range(0,len(opt_files)):
                         if opt_display_images:
                             cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
                     else:
-                        print 'unsuportet encoding:', msg.encoding
+                        print 'unsupported encoding:', msg.encoding
                         exit(1)
 
                     if len(msg.data)>0:
@@ -196,6 +205,8 @@ for files in range(0,len(opt_files)):
             except AttributeError:
                 # maybe theora packet
                 # theora not supportet
+                if opt_verbose :
+                    print "Could not handle this format. Maybe thoera packet? theora is not supported."
                 pass
 
     bag.close();
