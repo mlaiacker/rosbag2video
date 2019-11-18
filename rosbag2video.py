@@ -34,22 +34,33 @@ opt_display_images = False;
 opt_verbose = False;
 
 def print_help():
-    print
     print 'rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v (verbose messages)] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...'
     print
-    print 'converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv'
-    print 'avconv needs to be installed! (sudo apt-get install libav-tools)'
-    print 'if no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264'
-    print 'multiple image topics are supported only when -o option is _not_ used'
-    print 'avconv will guess the format according to given extension'
-    print 'compressed and raw image messages are supported with mono8 and bgr8/rgb8/bggr8'
-    print 'Abel Gabor 2019, based on the tool by Maximilian Laiacker 2016'
+    print 'Converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv or ffmpeg.'
+    print 'One of avconv or ffmpeg needs to be installed!'
+    print
+    print '--fps:  Sets FPS value that is passed to avconv/ffmpeg to be used.'
+    print '        Default is 25.'
+    print '-h:     Displays this help.'
+    print '-o:     sets output filename.'
+    print '        If no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264.'
+    print '        Multiple image topics are supported only when -o option is _not_ used.'
+    print '        avconv/ffmpeg will guess the format according to given extension.'
+    print '        Compressed and raw image messages are supported with mono8 and bgr8/rgb8/bggr8/rggb8 formats.'
+    print '--rate: You may slow down or speed up the video.'
+    print '        Default is 1.0, that keeps the original speed.'
+    print '-s:     Shows each and every image extracted from the rosbag file.'
+    print '-t:     Only the images from topic "topic" are used for the video output.'
+    print '-v:     Verbose messages are displayed.'
     
+print
+print 'rosbag2video, Abel Gabor 2019, based on the tool by Maximilian Laiacker 2016'
+print
+
 if len(sys.argv) < 2:
-    print 'Please specify ros bag file(s)'
-    print 'For example:'
+    print 'Please specify ros bag file(s)!'
     print_help()
-    exit(1)
+    sys.exit(1)
 else :
    try:
       opts, opt_files = getopt.getopt(sys.argv[1:],"hsvr:o:c:t:",["fps=","rate=","ofile=","codec=","topic="])
@@ -59,7 +70,7 @@ else :
    for opt, arg in opts:
       if opt == '-h':
          print_help()
-         sys.exit()
+         sys.exit(0)
       elif opt == '-s':
           opt_display_images = True
       elif opt == '-v':
@@ -76,7 +87,6 @@ else :
          opt_topic = arg
       else:
           print "opz:", opt,'arg:', arg
-
 
 t_first={};
 t_file={};
@@ -214,6 +224,11 @@ for files in range(0,len(opt_files)):
                         #np_arr = np.fromstring(msg.data, np.uint8)
                         if opt_display_images:
                             cv_image = bridge.imgmsg_to_cv2(msg, "bayer_bggr8")
+                    elif msg.encoding.find("rggb8")!=-1 :
+                        pix_fmt = "bayer_rggb8"
+                        #np_arr = np.fromstring(msg.data, np.uint8)
+                        if opt_display_images:
+                            cv_image = bridge.imgmsg_to_cv2(msg, "bayer_rggb8")
                     elif msg.encoding.find("rgb8")!=-1 :
                         pix_fmt = "rgb24"
                         #np_arr = np.fromstring(msg.data, np.uint8)
