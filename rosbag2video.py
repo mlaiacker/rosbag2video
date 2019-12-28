@@ -242,7 +242,7 @@ for files in range(0,len(opt_files)):
 
             except AttributeError:
                 # maybe theora packet
-                # theora not supportet
+                # theora not supported
                 if opt_verbose :
                     print "Could not handle this format. Maybe thoera packet? theora is not supported."
                 pass
