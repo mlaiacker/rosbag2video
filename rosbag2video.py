@@ -209,7 +209,7 @@ for files in range(0,len(opt_files)):
         except AttributeError:
             try:
                     pix_fmt=""
-                    if msg.encoding.find("mono8")!=-1 :
+                    if msg.encoding.find("mono8")!=-1 or msg.encoding.find("8UC1")!=-1:
                         pix_fmt = "gray"
                         #np_arr = np.fromstring(msg.data, np.uint8)
                         if opt_display_images:
