@@ -192,7 +192,7 @@ for files in range(0,len(opt_files)):
     for topic, msg, t in bag.read_messages(connection_filter=filter_image_msgs):
         try:
             if msg.format.find("jpeg")!=-1 :
-                if msg.format.find("8")!=-1 and (msg.format.find("rgb")!=-1 or msg.format.find("bgr")!=-1):
+                if msg.format.find("8")!=-1 and (msg.format.find("rgb")!=-1 or msg.format.find("bgr")!=-1 or msg.format.find("bgra")!=-1 ):
                     if opt_display_images:
                         np_arr = np.fromstring(msg.data, np.uint8)
                         cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
@@ -214,6 +214,13 @@ for files in range(0,len(opt_files)):
                         #np_arr = np.fromstring(msg.data, np.uint8)
                         if opt_display_images:
                             cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+
+                    elif msg.encoding.find("bgra")!=-1 :
+                        pix_fmt = "bgra"
+                        #np_arr = np.fromstring(msg.data, np.uint8)
+                        if opt_display_images:
+                            cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+
                     elif msg.encoding.find("bgr8")!=-1 :
                         pix_fmt = "bgr24"
                         #np_arr = np.fromstring(msg.data, np.uint8)
