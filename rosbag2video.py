@@ -204,7 +204,7 @@ for files in range(0,len(opt_files)):
                     print 'unsupported jpeg format: ', msg.format, '.'
                     exit(1)
 
-                write_output_video( msg, topic, t, MJPEG_VIDEO )
+                write_output_video( msg, topic, t, cv_image, MJPEG_VIDEO )
                     
         except AttributeError:
             try:
