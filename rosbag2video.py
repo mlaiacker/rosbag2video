@@ -12,6 +12,7 @@ post@mlaiacker.de"""
 
 import roslib
 #roslib.load_manifest('rosbag')
+import rospy
 import rosbag
 import sys, getopt
 import os
@@ -28,33 +29,37 @@ RAWIMAGE_VIDEO = 2
 VIDEO_CONVERTER_TO_USE = "ffmpeg" # or you may want to use "avconv"
 
 def print_help():
-    print('rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v (verbose messages)] [-s (show video)] [-t topic] bagfile1 [bagfile2] ...')
+    print('rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v] [-s] [-t topic] bagfile1 [bagfile2] ...')
     print()
-    print('Converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using avconv or ffmpeg.')
-    print('One of avconv or ffmpeg needs to be installed!')
+    print('Converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using',VIDEO_CONVERTER_TO_USE)
+    print(VIDEO_CONVERTER_TO_USE,'needs to be installed!')
     print()
-    print('--fps:  Sets FPS value that is passed to avconv/ffmpeg to be used.')
+    print('--fps   Sets FPS value that is passed to',VIDEO_CONVERTER_TO_USE)
     print('        Default is 25.')
-    print('-h:     Displays this help.')
-    print('-o:     sets output filename.')
+    print('-h      Displays this help.')
+    print('-o      sets output filename.')
     print('        If no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264.')
     print('        Multiple image topics are supported only when -o option is _not_ used.')
-    print('        avconv/ffmpeg will guess the format according to given extension.')
+    print('        ',VIDEO_CONVERTER_TO_USE,' will guess the format according to given extension.')
     print('        Compressed and raw image messages are supported with mono8 and bgr8/rgb8/bggr8/rggb8 formats.')
-    print('--rate: You may slow down or speed up the video.')
+    print('--rate  You may slow down or speed up the video.')
     print('        Default is 1.0, that keeps the original speed.')
-    print('-s:     Shows each and every image extracted from the rosbag file.')
-    print('-t:     Only the images from topic "topic" are used for the video output.')
-    print('-v:     Verbose messages are displayed.')
+    print('-s      Shows each and every image extracted from the rosbag file (cv_bride is needed).')
+    print('-t      Only the images from topic "topic" are used for the video output.')
+    print('-v      Verbose messages are displayed.')
+    print('--start Optional start time in seconds.')
+    print('--end   Optional end time in seconds.')
     
 
 
 class RosVideoWriter():
-    def __init__(self, fps=25.0, rate=1.0, topic="", output_filename ="", display= False, verbose = False):
+    def __init__(self, fps=25.0, rate=1.0, topic="", output_filename ="", display= False, verbose = False, start = rospy.Time(0), end = rospy.Time(sys.maxsize)):
         self.opt_topic = topic
         self.opt_out_file = output_filename
         self.opt_verbose = verbose
         self.opt_display_images = display
+        self.opt_start = start
+        self.opt_end = end
         self.rate = rate
         self.fps = fps
         self.t_first={}
@@ -62,6 +67,48 @@ class RosVideoWriter():
         self.t_video={}
         self.p_avconv = {}
 
+    def parseArgs(self, args):
+        opts, opt_files = getopt.getopt(args,"hsvr:o:t:",["fps=","rate=","ofile=","topic=","start=","end="])
+        for opt, arg in opts:
+            if opt == '-h':
+                print_help()
+                sys.exit(0)
+            elif opt == '-s':
+                self.opt_display_images = True
+            elif opt == '-v':
+                self.opt_verbose = True
+            elif opt in ("-r", "--fps"):
+                self.fps = float(arg)
+            elif opt in ("--rate"):
+                self.rate = float(arg)
+            elif opt in ("-o", "--ofile"):
+                self.opt_out_file = arg
+            elif opt in ("-t", "--topic"):
+                self.opt_topic = arg
+            elif opt in ("--start"):
+                self.opt_start = rospy.Time(int(arg))
+                if(self.opt_verbose):
+                    print("starting at",self.opt_start.to_sec())
+            elif opt in ("--end"):
+                self.opt_end = rospy.Time(int(arg))
+                if(self.opt_verbose):
+                    print("ending at",self.opt_end.to_sec())
+            else:
+                print("opz:", opt,'arg:', arg)
+        
+        if (self.fps<=0):
+            print("invalid fps", self.fps)
+            self.fps = 1
+        
+        if (self.rate<=0):
+            print("invalid rate", self.rate)
+            self.rate = 1
+
+        if(self.opt_verbose):
+            print("using ",self.fps," FPS")
+        return opt_files
+    
+    
     # filter messages using type or only the opic we whant from the 'topic' argument
     def filter_image_msgs(self, topic, datatype, md5sum, msg_def, header):
         if(datatype=="sensor_msgs/CompressedImage"):
@@ -104,7 +151,7 @@ class RosVideoWriter():
             if not topic in self.p_avconv:
                 # we have to start a new process for this topic
                 if self.opt_verbose :
-                    print("Initializing pipe for topic ", topic, ".")
+                    print("Initializing pipe for topic", topic, "at time", t.to_sec())
                 if self.opt_out_file=="":
                     out_file = str(topic).replace("/", "_")+".mp4"
                 else:
@@ -114,14 +161,14 @@ class RosVideoWriter():
                     print("Using output file ", out_file, " for topic ", topic, ".")
                                 
                 if video_fmt == MJPEG_VIDEO :
-                    cmd = [VIDEO_CONVERTER_TO_USE, '-v', '1', '-stats', '-r',str(opt_fps),'-c','mjpeg','-f','mjpeg','-i','-','-an',out_file]
+                    cmd = [VIDEO_CONVERTER_TO_USE, '-v', '1', '-stats', '-r',str(self.fps),'-c','mjpeg','-f','mjpeg','-i','-','-an',out_file]
                     self.p_avconv[topic] = subprocess.Popen(cmd, stdin=subprocess.PIPE)
                     if self.opt_verbose :
                         print("Using command line:")
                         print(cmd)
                 elif video_fmt == RAWIMAGE_VIDEO :
                     size = str(msg.width)+"x"+str(msg.height)
-                    cmd = [VIDEO_CONVERTER_TO_USE, '-v', '1', '-stats','-r',str(opt_fps),'-f','rawvideo','-s',size,'-pix_fmt', pix_fmt,'-i','-','-an',out_file]
+                    cmd = [VIDEO_CONVERTER_TO_USE, '-v', '1', '-stats','-r',str(self.fps),'-f','rawvideo','-s',size,'-pix_fmt', pix_fmt,'-i','-','-an',out_file]
                     self.p_avconv[topic] = subprocess.Popen(cmd, stdin=subprocess.PIPE)
                     if self.opt_verbose :
                         print("Using command line:")
@@ -146,10 +193,10 @@ class RosVideoWriter():
             
         #Go through the bag file
         bag = rosbag.Bag(filename)
-        if opt_verbose :
+        if self.opt_verbose :
             print("Bag opened.")
         # loop over all topics
-        for topic, msg, t in bag.read_messages(connection_filter=self.filter_image_msgs):
+        for topic, msg, t in bag.read_messages(connection_filter=self.filter_image_msgs, start_time=self.opt_start, end_time=self.opt_end):
             try:
                 if msg.format.find("jpeg")!=-1 :
                     if msg.format.find("8")!=-1 and (msg.format.find("rgb")!=-1 or msg.format.find("bgr")!=-1 or msg.format.find("bgra")!=-1 ):
@@ -165,7 +212,7 @@ class RosVideoWriter():
                         exit(1)
 
                     self.write_output_video( msg, topic, t, MJPEG_VIDEO )
-            # has no attribute format
+            # has no attribute 'format'
             except AttributeError:
                 try:
                         pix_fmt=""
@@ -212,65 +259,33 @@ class RosVideoWriter():
                 key=cv2.waitKey(1)
                 if key==1048603:
                     exit(1)
+        if self.p_avconv == {}:
+            print("No image topics found in bag:", filename)
         bag.close()
 
 
 
-if __name__ == '__main__':
-    opt_fps =25.0
-    opt_rate = 1
-    opt_out_file=""
-    opt_topic = ""
-    opt_files = []
-    opt_display_images = False
-    opt_verbose = False
-    
-    print()
-    print('rosbag2video, by Maximilian Laiacker 2020 and Abel Gabor 2019')
-    print()
+if __name__ == '__main__':    
+    #print()
+    #print('rosbag2video, by Maximilian Laiacker 2020 and Abel Gabor 2019')
+    #print()
 
     if len(sys.argv) < 2:
         print('Please specify ros bag file(s)!')
         print_help()
         sys.exit(1)
     else :
-       try:
-          opts, opt_files = getopt.getopt(sys.argv[1:],"hsvr:o:c:t:",["fps=","rate=","ofile=","codec=","topic="])
-       except getopt.GetoptError:
-          print_help()
-          sys.exit(2)
-       for opt, arg in opts:
-          if opt == '-h':
-             print_help()
-             sys.exit(0)
-          elif opt == '-s':
-              opt_display_images = True
-          elif opt == '-v':
-              opt_verbose = True
-          elif opt in ("-r", "--fps"):
-             opt_fps = float(arg)
-          elif opt in ("--rate"):
-             opt_rate = float(arg)
-          elif opt in ("-o", "--ofile"):
-             opt_out_file = arg
-          elif opt in ("-c", "--codec"):
-             opt_fourcc = arg
-          elif opt in ("-t", "--topic"):
-             opt_topic = arg
-          else:
-              print("opz:", opt,'arg:', arg)
+        videowriter = RosVideoWriter()
+        try:
+            opt_files = videowriter.parseArgs(sys.argv[1:])
+        except getopt.GetoptError:
+            print_help()
+            sys.exit(2)
 
     
-    if (opt_fps<=0):
-        opt_fps = 1
-    if (opt_rate<=0):
-        opt_rate = 1
-    if(opt_verbose):
-        print("using ",opt_fps," FPS")
-
-    videowriter = RosVideoWriter(fps=opt_fps, rate=opt_rate, topic=opt_topic, output_filename = opt_out_file, display= opt_display_images, verbose = opt_verbose)
     # loop over all files
     for files in range(0,len(opt_files)):
         #First arg is the bag to look at
         bagfile = opt_files[files]
         videowriter.addBag(bagfile)
+    print("finished")
