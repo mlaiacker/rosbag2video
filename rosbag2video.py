@@ -37,16 +37,17 @@ def print_help():
     print('--fps   Sets FPS value that is passed to',VIDEO_CONVERTER_TO_USE)
     print('        Default is 25.')
     print('-h      Displays this help.')
-    print('-o      sets output filename.')
-    print('        If no output file (-o) is given the filename \'<topic>.mp4\' is used and default output codec is h264.')
+    print('--ofile (-o) sets output file name.')
+    print('        If no output file name (-o) is given the filename \'<prefix><topic>.mp4\' is used and default output codec is h264.')
     print('        Multiple image topics are supported only when -o option is _not_ used.')
     print('        ',VIDEO_CONVERTER_TO_USE,' will guess the format according to given extension.')
     print('        Compressed and raw image messages are supported with mono8 and bgr8/rgb8/bggr8/rggb8 formats.')
-    print('--rate  You may slow down or speed up the video.')
+    print('--rate  (-r) You may slow down or speed up the video.')
     print('        Default is 1.0, that keeps the original speed.')
     print('-s      Shows each and every image extracted from the rosbag file (cv_bride is needed).')
-    print('-t      Only the images from topic "topic" are used for the video output.')
+    print('--topic (-t) Only the images from topic "topic" are used for the video output.')
     print('-v      Verbose messages are displayed.')
+    print('--prefix (-p) set a output file name prefix othervise \'bagfile1\' is used (if -o is not set).')
     print('--start Optional start time in seconds.')
     print('--end   Optional end time in seconds.')
     
@@ -62,13 +63,14 @@ class RosVideoWriter():
         self.opt_end = end
         self.rate = rate
         self.fps = fps
+        self.opt_prefix= None
         self.t_first={}
         self.t_file={}
         self.t_video={}
         self.p_avconv = {}
 
     def parseArgs(self, args):
-        opts, opt_files = getopt.getopt(args,"hsvr:o:t:",["fps=","rate=","ofile=","topic=","start=","end="])
+        opts, opt_files = getopt.getopt(args,"hsvr:o:t:p:",["fps=","rate=","ofile=","topic=","start=","end=","prefix="])
         for opt, arg in opts:
             if opt == '-h':
                 print_help()
@@ -85,6 +87,8 @@ class RosVideoWriter():
                 self.opt_out_file = arg
             elif opt in ("-t", "--topic"):
                 self.opt_topic = arg
+            elif opt in ("-p", "--prefix"):
+                self.opt_prefix = arg
             elif opt in ("--start"):
                 self.opt_start = rospy.Time(int(arg))
                 if(self.opt_verbose):
@@ -153,7 +157,7 @@ class RosVideoWriter():
                 if self.opt_verbose :
                     print("Initializing pipe for topic", topic, "at time", t.to_sec())
                 if self.opt_out_file=="":
-                    out_file = str(topic).replace("/", "_")+".mp4"
+                    out_file = self.opt_prefix + str(topic).replace("/", "_")+".mp4"
                 else:
                     out_file = self.opt_out_file
 
@@ -190,6 +194,10 @@ class RosVideoWriter():
 
         if self.opt_verbose :
             print("Bagfile: {}".format(filename))
+
+        if not self.opt_prefix:
+            # create the output in the same folder and name as the bag file minu '.bag'
+            self.opt_prefix = bagfile[:-4]
             
         #Go through the bag file
         bag = rosbag.Bag(filename)
@@ -203,19 +211,24 @@ class RosVideoWriter():
                         if self.opt_display_images:
                             np_arr = np.fromstring(msg.data, np.uint8)
                             cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )
                     elif msg.format.find("mono8")!=-1 :
                         if self.opt_display_images:
                             np_arr = np.fromstring(msg.data, np.uint8)
                             cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )
+                    elif msg.format.find("16UC1")!=-1 :
+                        if self.opt_display_images:
+                            np_arr = np.fromstring(msg.data, np.uint16)
+                            cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
+                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )                        
                     else:
-                        print('unsupported jpeg format: ', msg.format, '.')
-                        exit(1)
+                        print('unsupported jpeg format:', msg.format, '.', topic)
 
-                    self.write_output_video( msg, topic, t, MJPEG_VIDEO )
             # has no attribute 'format'
             except AttributeError:
                 try:
-                        pix_fmt=""
+                        pix_fmt=None
                         if msg.encoding.find("mono8")!=-1 or msg.encoding.find("8UC1")!=-1:
                             pix_fmt = "gray"
                             if self.opt_display_images:
@@ -242,11 +255,13 @@ class RosVideoWriter():
                             pix_fmt = "rgb24"
                             if self.opt_display_images:
                                 cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+                        elif msg.encoding.find("16UC1")!=-1 :
+                            pix_fmt = "gray16le"
                         else:
-                            print('unsupported encoding:', msg.encoding)
-                            exit(1)
-
-                        self.write_output_video( msg, topic, t, RAWIMAGE_VIDEO, pix_fmt )
+                            print('unsupported encoding:', msg.encoding, topic)
+                            #exit(1)
+                        if pix_fmt:
+                            self.write_output_video( msg, topic, t, RAWIMAGE_VIDEO, pix_fmt )
 
                 except AttributeError:
                     # maybe theora packet
