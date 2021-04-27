@@ -50,7 +50,7 @@ def print_help():
     print('--prefix (-p) set a output file name prefix othervise \'bagfile1\' is used (if -o is not set).')
     print('--start Optional start time in seconds.')
     print('--end   Optional end time in seconds.')
-    
+
 
 
 class RosVideoWriter():
@@ -79,9 +79,9 @@ class RosVideoWriter():
                 self.opt_display_images = True
             elif opt == '-v':
                 self.opt_verbose = True
-            elif opt in ("-r", "--fps"):
+            elif opt in ("--fps"):
                 self.fps = float(arg)
-            elif opt in ("--rate"):
+            elif opt in ("-r", "--rate"):
                 self.rate = float(arg)
             elif opt in ("-o", "--ofile"):
                 self.opt_out_file = arg
@@ -99,11 +99,11 @@ class RosVideoWriter():
                     print("ending at",self.opt_end.to_sec())
             else:
                 print("opz:", opt,'arg:', arg)
-        
+
         if (self.fps<=0):
             print("invalid fps", self.fps)
             self.fps = 1
-        
+
         if (self.rate<=0):
             print("invalid rate", self.rate)
             self.rate = 1
@@ -111,8 +111,8 @@ class RosVideoWriter():
         if(self.opt_verbose):
             print("using ",self.fps," FPS")
         return opt_files
-    
-    
+
+
     # filter messages using type or only the opic we whant from the 'topic' argument
     def filter_image_msgs(self, topic, datatype, md5sum, msg_def, header):
         if(datatype=="sensor_msgs/CompressedImage"):
@@ -121,20 +121,20 @@ class RosVideoWriter():
                 print(topic,' with datatype:', str(datatype))
                 print()
                 return True;
-                
+
         if(datatype=="theora_image_transport/Packet"):
             if (self.opt_topic != "" and self.opt_topic == topic) or self.opt_topic == "":
                 print(topic,' with datatype:', str(datatype))
                 print('!!! theora is not supported, sorry !!!')
                 return False;
-                
+
         if(datatype=="sensor_msgs/Image"):
             if (self.opt_topic != "" and self.opt_topic == topic) or self.opt_topic == "":
                 print("############# UNCOMPRESSED IMAGE ######################")
                 print(topic,' with datatype:', str(datatype))
                 print()
                 return True;
-                
+
         return False;
 
 
@@ -163,7 +163,7 @@ class RosVideoWriter():
 
                 if self.opt_verbose :
                     print("Using output file ", out_file, " for topic ", topic, ".")
-                                
+
                 if video_fmt == MJPEG_VIDEO :
                     cmd = [VIDEO_CONVERTER_TO_USE, '-v', '1', '-stats', '-r',str(self.fps),'-c','mjpeg','-f','mjpeg','-i','-','-an',out_file]
                     self.p_avconv[topic] = subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -177,11 +177,11 @@ class RosVideoWriter():
                     if self.opt_verbose :
                         print("Using command line:")
                         print(cmd)
-                    
+
                 else :
                     print("Script error, unknown value for argument video_fmt in function write_output_video.")
                     exit(1)
-            # send data to ffmpeg process pipe               
+            # send data to ffmpeg process pipe
             self.p_avconv[topic].stdin.write(msg.data)
             # next frame time
             self.t_video[topic] += 1.0/self.fps
@@ -198,7 +198,7 @@ class RosVideoWriter():
         if not self.opt_prefix:
             # create the output in the same folder and name as the bag file minu '.bag'
             self.opt_prefix = bagfile[:-4]
-            
+
         #Go through the bag file
         bag = rosbag.Bag(filename)
         if self.opt_verbose :
@@ -221,7 +221,7 @@ class RosVideoWriter():
                         if self.opt_display_images:
                             np_arr = np.fromstring(msg.data, np.uint16)
                             cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )                        
+                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )
                     else:
                         print('unsupported jpeg format:', msg.format, '.', topic)
 
@@ -270,7 +270,7 @@ class RosVideoWriter():
                         print("Could not handle this format. Maybe thoera packet? theora is not supported.")
                     pass
             if self.opt_display_images:
-                cv2.imshow(topic, cv_image)                
+                cv2.imshow(topic, cv_image)
                 key=cv2.waitKey(1)
                 if key==1048603:
                     exit(1)
@@ -280,7 +280,7 @@ class RosVideoWriter():
 
 
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     #print()
     #print('rosbag2video, by Maximilian Laiacker 2020 and Abel Gabor 2019')
     #print()
@@ -297,7 +297,7 @@ if __name__ == '__main__':
             print_help()
             sys.exit(2)
 
-    
+
     # loop over all files
     for files in range(0,len(opt_files)):
         #First arg is the bag to look at
