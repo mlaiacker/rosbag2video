@@ -24,6 +24,10 @@ from cv_bridge import CvBridge
 
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
+try:
+    from theora_image_transport.msg import Packet
+except Exception:
+    pass
 from rosbag2_transport import rosbag2_transport_py
 from ros2bag.api import check_path_exists
 from ros2cli.node import NODE_NAME_PREFIX
@@ -81,12 +85,6 @@ class RosVideoWriter(Node):
             print_help()
             sys.exit(2)
 
-        self.subscription = self.create_subscription(
-            Image,
-            self.opt_topic,
-            self.listener_callback,
-            10)
-
         self.bridge = CvBridge()
         self.frame_no = 1
         self.bag_file = opt_files[0]
@@ -97,11 +95,19 @@ class RosVideoWriter(Node):
         self.rosbag2_info = self.rosbag2_info.splitlines()
         # print(self.rosbag2_info)
 
-        self.msgtype, self.count, self.serialtype = self.get_bagtopic_info()
+        self.msgtype_literal, self.count, self.serialtype = self.get_bagtopic_info()
+        self.msgtype = self.filter_image_msgs(self.msgtype_literal)
+
         # DEBUG
-        # print("msgtype = ", self.msgtype)
+        # print("msgtype_literal = ", self.msgtype_literal)
         # print("count = ", self.count)
         # print("serialtype = ", self.serialtype)
+
+        self.subscription = self.create_subscription(
+            self.msgtype,
+            self.opt_topic,
+            self.listener_callback,
+            10)
 
         p1 = subprocess.Popen(['ros2', 'bag', 'play', self.bag_file, '-r' , str(self.rate)])
 
@@ -117,7 +123,7 @@ class RosVideoWriter(Node):
                 self.opt_verbose = True
             elif opt in ("--fps"):
                 self.fps = int(arg)
-            elif opt in ("--rate"):
+            elif opt in ("-r", "--rate"):
                 self.rate = float(arg)
             elif opt in ("-o", "--ofile"):
                 self.opt_out_file = arg
@@ -137,6 +143,16 @@ class RosVideoWriter(Node):
         if(self.opt_verbose):
             print("using ",self.fps," FPS")
         return opt_files
+
+    def filter_image_msgs(self, msgtype_literal):
+
+        if 'sensor_msgs/msg/Image' == msgtype_literal:
+            return Image
+        elif 'sensor_msgs/msg/CompressedImage' == msgtype_literal:
+            return CompressedImage
+        elif 'theora_image_transport/msg/Packet' == msgtype_literal:
+            return Packet
+
 
     def get_bagtopic_info(self):
 
