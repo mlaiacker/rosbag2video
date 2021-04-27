@@ -1,4 +1,4 @@
-# rosbag2video
+# **rosbag2video**
 
     rosbag2video.py
     rosbag to video file conversion tool
@@ -8,20 +8,23 @@
     with contributions from Abel Gabor 2019
     baquatelle@gmail.com
 
+For use with **ROS2** bags, please refer to the [foxy](https://github.com/mlaiacker/rosbag2video/tree/foxy) branch.
 
-## install:
+For use with **ROS1** bags, please proceed with the instructions below.
 
-ffmpeg is needed and can be installed on Ubuntu with:
+## **Install**:
+
+**ffmpeg** is needed and can be installed on **Ubuntu** with:
 
     sudo apt install ffmpeg
 
-ros and other stuff
+**ros** and **other stuff**
 
     sudo apt install python3-roslib python3-sensor-msgs python3-opencv
 
 
 
-## usage:
+## **Usage**:
 
     rosbag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v] [-s] [-t topic] bagfile1 [bagfile2] ...
 
@@ -45,7 +48,7 @@ ros and other stuff
     --start Optional start time in seconds.
     --end   Optional end time in seconds.
 
-## example output:
+## **Example Output**:
 
     ./rosbag2video.py camera_and_state.bag
 
@@ -55,4 +58,3 @@ ros and other stuff
     /image_raw/compressed  with datatype: sensor_msgs/CompressedImage
 
     frame=   77 fps= 13 q=28.0 size=    1280kB time=00:00:00.96 bitrate=10922.2kbits/s speed=0.156x
-
