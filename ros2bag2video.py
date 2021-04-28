@@ -73,12 +73,9 @@ class RosVideoWriter(Node):
 
         self.fps = 25
         self.rate = 1.0
-        self.opt_display_images = False
         self.opt_out_file = 'output.mp4'
         self.opt_topic = ''
         self.opt_verbose = False
-        self.pix_fmt = ''
-        self.msg_fmt = ''
         self.pix_fmt_already_set = False
 
         # Checks if a ROS2 bag has been specified in commandline.
@@ -91,7 +88,6 @@ class RosVideoWriter(Node):
             print("FPS (int) = ", self.fps)
             print("Rate (float) = ", self.rate)
             print("Topic (str) = ", self.opt_topic)
-            print("Display Images (bool) = ", self.opt_display_images)
             print("Output File (str) = ", self.opt_out_file)
             print("Verbose (bool) = ", self.opt_verbose)
         except getopt.GetoptError:
@@ -146,8 +142,6 @@ class RosVideoWriter(Node):
             if opt == '-h':
                 print_help()
                 sys.exit(0)
-            elif opt == '-s':
-                self.opt_display_images = True
             elif opt == '-v':
                 self.opt_verbose = True
             elif opt in ("--fps"):
@@ -247,6 +241,9 @@ class RosVideoWriter(Node):
     def listener_callback(self, msg):
         self.get_logger().info('Image Received [%i/%i]' %
                                (self.frame_no, self.count))
+
+        pix_fmt = 'yuv420p'
+        msg_fmt = ''
 
         if self.pix_fmt_already_set is not True:
             pix_fmt, msg_fmt = self.get_pix_fmt(msg.encoding)
