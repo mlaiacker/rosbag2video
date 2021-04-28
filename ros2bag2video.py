@@ -35,7 +35,11 @@ from argparse import FileType
 
 VIDEO_CONVERTER_TO_USE = 'ffmpeg'
 
-
+'''
+The print_help function.
+Outputs how a user can configure use of ros2bag2video to generate the video
+from ROS2 bag file.
+'''
 def print_help():
     print('ros2bag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v] ' +
           '[-s] [-t topic] bagfile1 [bagfile2] ...')
@@ -65,18 +69,32 @@ def print_help():
     print('-v      Verbose messages are displayed.')
 
 
+'''
+The RosVideoWriter class is a ROS2 node instantiated to subscribe to a
+user-defined ROS2 topic on a user-defined ROS2 bag file.
+'''
 class RosVideoWriter(Node):
 
     def __init__(self, args):
-        print('[rosbag2video] - started.')
-        super().__init__('rosbag2videos')
+        '''
+        The constructor.
+        1. Initializes class attributes using user inputs and reading input
+        bag file.
+        2. Defines subscriber callback.
+        3. Plays input bag file.
+        '''
+        super().__init__('ros2bag2videos')
 
         self.fps = 25
         self.rate = 1.0
+        self.frame_no = 1
         self.opt_out_file = 'output.mp4'
         self.opt_topic = ''
         self.opt_verbose = False
         self.pix_fmt_already_set = False
+        self.bridge = CvBridge()
+        self.pix_fmt = 'yuv420p'
+        self.msg_fmt = ''
 
         # Checks if a ROS2 bag has been specified in commandline.
         if len(args) < 2:
@@ -94,8 +112,6 @@ class RosVideoWriter(Node):
             print_help()
             sys.exit(2)
 
-        self.bridge = CvBridge()
-        self.frame_no = 1
         self.bag_file = opt_files[0]
         print('bag_file = ', self.bag_file)
 
@@ -104,14 +120,13 @@ class RosVideoWriter(Node):
                                  'info',
                                  self.bag_file],
                                 stdout=subprocess.PIPE)
-        self.rosbag2_info = str(proc.stdout.read(), 'utf-8')
-        self.rosbag2_info = self.rosbag2_info.splitlines()
-        # print(self.rosbag2_info)
+        rosbag2_info = str(proc.stdout.read(), 'utf-8').splitlines()
 
-        self.msgfmt_literal, self.count = self.get_topic_info()
+        self.msgfmt_literal, self.count = self.get_topic_info(rosbag2_info)
         self.msgtype = self.filter_image_msgs(self.msgfmt_literal)
 
         # DEBUG
+        # print(self.rosbag2_info)
         # print("msgfmt_literal = ", self.msgfmt_literal)
         # print("count = ", self.count)
         # print("serialtype = ", self.serialtype)
@@ -129,15 +144,21 @@ class RosVideoWriter(Node):
                                '-r',
                                str(self.rate)])
 
+    '''
+    Parses user input from commandline to get the following information.
+    1. Verbose [opt_verbose]
+    2. FPS [fps]
+    3. Rate [rate]
+    4. Output File Name [opt_out_file]
+    5. Input Topic Name [opt_topic]
+    6. Input Bag File Path Name [opt_files[0]]
+    '''
     def parseArgs(self, args):
         opts, opt_files = getopt.getopt(args, 'hsvr:o:t:p:',
                                         ['fps=',
                                          'rate=',
                                          'ofile=',
-                                         'topic=',
-                                         'start=',
-                                         'end=',
-                                         'prefix='])
+                                         'topic='])
         for opt, arg in opts:
             if opt == '-h':
                 print_help()
@@ -167,6 +188,10 @@ class RosVideoWriter(Node):
             print('Using ', self.fps, ' FPS')
         return opt_files
 
+    '''
+    Detemines the ROS2 message format which RosVideoWriter node will expect to
+    receive in our subscriber callback.
+    '''
     def filter_image_msgs(self, msgfmt_literal):
 
         if 'sensor_msgs/msg/Image' == msgfmt_literal:
@@ -176,6 +201,12 @@ class RosVideoWriter(Node):
         elif 'theora_image_transport/msg/Packet' == msgfmt_literal:
             return Packet
 
+    '''
+    Parses ROS2 message encoding to derive the following information.
+    1. pix_fmt (To be passed to ffmpeg process execution.)
+    2. msg_fmt (To be passed to cv_bridge function to convert ROS2 messages
+    to OpenCV Mat)
+    '''
     def get_pix_fmt(self, msg_encoding):
 
         pix_fmt = 'yuv420p'
@@ -219,13 +250,24 @@ class RosVideoWriter(Node):
                   ' Maybe thoera packet? theora is not supported.')
             exit(1)
 
-    def get_topic_info(self):
+    '''
+    Parses 'ros2 bag info input_bag/' terminal output to get the following
+    information:
+    1. ROS2 Message Type (To be used in constructor to define subscriber
+    callback.)
+    2. ROS2 Message Frame Count (To be used in subscriber callback to track
+    progress.)
+    3. ROS2 Bag Serialization Format (Not used.)
+
+    Returns only the first two info.
+    '''
+    def get_topic_info(self, rosbag2_info):
 
         msgtype = ''
         count = 0
         serialtype = ''  # Unused
 
-        for line in self.rosbag2_info:
+        for line in rosbag2_info:
             if self.opt_topic in line:
                 parse_line = line.split()
                 for word_index in range(0, len(parse_line)):
@@ -238,24 +280,40 @@ class RosVideoWriter(Node):
 
         return msgtype, count
 
+    '''
+    The Subscriber Callback.
+    1. Receives images from running ROS2 bag file.
+    2. Get pix_fmt info for ffmpeg process execution.
+    3. Manually converts 16UC1 color encoding to mono16 to avoid cv_bridge
+    conversion error.
+    4. Converts ROS2 image message to OpenCV Mat object.
+    5. Writes individual frame out to file.
+    6. Uses ffmpeg to stitch all frames into a video at user-defined
+    configuration.
+    7. Removes all individual frames.
+    '''
     def listener_callback(self, msg):
         self.get_logger().info('Image Received [%i/%i]' %
                                (self.frame_no, self.count))
 
-        pix_fmt = 'yuv420p'
-        msg_fmt = ''
-
         if self.pix_fmt_already_set is not True:
-            pix_fmt, msg_fmt = self.get_pix_fmt(msg.encoding)
+            self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
             self.pix_fmt_already_set = True
 
         if msg.encoding.find('16UC1') != -1:
             msg.encoding = 'mono16'
-        img = self.bridge.imgmsg_to_cv2(msg, msg_fmt)
+
+        img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
 
         filename = str(self.frame_no).zfill(3) + '.png'
         cv2.imwrite(filename, img)
 
+        '''
+        Once the last frame is reached, combine all individual image frames
+        together to create the video. Remove all individual image frames and
+        kill program once done.
+        Otherwise, continue incrementing frame count.
+        '''
         if self.frame_no is self.count:
             p1 = subprocess.Popen([VIDEO_CONVERTER_TO_USE,
                                   '-framerate',
@@ -267,7 +325,7 @@ class RosVideoWriter(Node):
                                    '-c:v',
                                    'libx264',
                                    '-pix_fmt',
-                                   pix_fmt,
+                                   self.pix_fmt,
                                    self.opt_out_file,
                                    '-y'])
             p1.communicate()
@@ -278,7 +336,10 @@ class RosVideoWriter(Node):
         else:
             self.frame_no = self.frame_no + 1
 
-
+'''
+The main function.
+Starts ros2bag2videos ROS2 node and spins it.
+'''
 def main(args=None):
 
     rclpy.init(args=args)
