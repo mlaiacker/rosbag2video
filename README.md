@@ -50,25 +50,21 @@ source /opt/ros/foxy/setup.bash
 ./ros2bag2video.py --topic /camera/color/image_raw rosbag2_2020_10_09-16_34_25/
 
 
-[rosbag2video] - started.
 FPS (int) =  25
 Rate (float) =  1.0
 Topic (str) =  /camera/color/image_raw
-Display Images (bool) =  False
 Output File (str) =  output.mp4
 Verbose (bool) =  False
 bag_file =  rosbag2_2020_10_09-16_34_25/
-[INFO] [1619609454.355349484] [rosbag2_storage]: Opened database './rosbag2_2020_10_09-16_34_25/rosbag2_2020_10_09-16_34_25_0.db3' for READ_ONLY.
-[INFO] [1619609454.712486554] [rosbag2videos]: Image Received [1/28]
-[INFO] [1619609454.726483499] [rosbag2videos]: Image Received [2/28]
-[INFO] [1619609454.954045025] [rosbag2videos]: Image Received [3/28]
-[INFO] [1619609455.448039372] [rosbag2videos]: Image Received [4/28]
-[INFO] [1619609455.929904371] [rosbag2videos]: Image Received [5/28]
-[INFO] [1619609456.379741104] [rosbag2videos]: Image Received [6/28]
-[INFO] [1619609456.854809736] [rosbag2videos]: Image Received [7/28]
-[INFO] [1619609457.320302225] [rosbag2videos]: Image Received [8/28]
-[INFO] [1619609457.782396069] [rosbag2videos]: Image Received [9/28]
-
+[INFO] [1619616391.700087224] [rosbag2_storage]: Opened database './rosbag2_2020_10_09-16_34_25/rosbag2_2020_10_09-16_34_25_0.db3' for READ_ONLY.
+[INFO] [1619616392.055535299] [ros2bag2videos]: Image Received [1/28]
+[INFO] [1619616392.077294702] [ros2bag2videos]: Image Received [2/28]
+[INFO] [1619616392.299152538] [ros2bag2videos]: Image Received [3/28]
+[INFO] [1619616392.792717810] [ros2bag2videos]: Image Received [4/28]
+[INFO] [1619616393.268813798] [ros2bag2videos]: Image Received [5/28]
+[INFO] [1619616393.724949415] [ros2bag2videos]: Image Received [6/28]
+[INFO] [1619616394.199588269] [ros2bag2videos]: Image Received [7/28]
+[INFO] [1619616394.667638765] [ros2bag2videos]: Image Received [8/28]
 ...
 Writing to output file, output.mp4
 
