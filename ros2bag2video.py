@@ -183,41 +183,47 @@ class RosVideoWriter(Node):
             return Packet
 
     def get_pix_fmt(self, msg_encoding):
-        self.pix_fmt = 'yuv420p'
+
+        pix_fmt = 'yuv420p'
+        msg_fmt = ''
+
         try:
             if msg_encoding.find("mono8") != -1:
-                self.pix_fmt = "gray"
-                self.msg_fmt = "bgr8"
+                pix_fmt = "gray"
+                msg_fmt = "bgr8"
             elif msg_encoding.find("8UC1") != -1:
-                self.pix_fmt = "gray"
-                self.msg_fmt = "bgr8"
+                pix_fmt = "gray"
+                msg_fmt = "bgr8"
             elif msg_encoding.find("bgra") != -1:
-                self.pix_fmt = "bgra"
-                self.msg_fmt = "bgr8"
+                pix_fmt = "bgra"
+                msg_fmt = "bgr8"
             elif msg_encoding.find("bgr8") != -1:
-                self.pix_fmt = "bgr24"
-                self.msg_fmt = "bgr8"
+                pix_fmt = "bgr24"
+                msg_fmt = "bgr8"
             elif msg_encoding.find("bggr8") != -1:
-                self.pix_fmt = "bayer_bggr8"
-                self.msg_fmt = "bayer_bggr8"
+                pix_fmt = "bayer_bggr8"
+                msg_fmt = "bayer_bggr8"
             elif msg_encoding.find("rggb8") != -1:
-                self.pix_fmt = "bayer_rggb8"
-                self.msg_fmt = "bayer_bggr8"
+                pix_fmt = "bayer_rggb8"
+                msg_fmt = "bayer_bggr8"
             elif msg_encoding.find("rgb8") != -1:
-                self.pix_fmt = "rgb24"
-                self.msg_fmt = "bgr8"
+                pix_fmt = "rgb24"
+                msg_fmt = "bgr8"
             elif msg_encoding.find("16UC1") != -1:
-                self.pix_fmt = "gray16le"
-                self.msg_fmt = "mono16"
+                pix_fmt = "gray16le"
+                msg_fmt = "mono16"
             else:
                 print('Unsupported encoding:', msg_encoding, topic)
                 exit(1)
+
+            return pix_fmt, msg_fmt
 
         except AttributeError:
             # maybe theora packet
             # theora not supported
             print("Could not handle this format." +
                   " Maybe thoera packet? theora is not supported.")
+            exit(1)
 
     def get_topic_info(self):
 
@@ -243,12 +249,12 @@ class RosVideoWriter(Node):
                                (self.frame_no, self.count))
 
         if self.pix_fmt_already_set is not True:
-            self.get_pix_fmt(msg.encoding)
+            pix_fmt, msg_fmt = self.get_pix_fmt(msg.encoding)
             self.pix_fmt_already_set = True
 
         if msg.encoding.find("16UC1") != -1:
             msg.encoding = 'mono16'
-        img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
+        img = self.bridge.imgmsg_to_cv2(msg, msg_fmt)
 
         filename = str(self.frame_no).zfill(3) + ".png"
         cv2.imwrite(filename, img)
@@ -264,7 +270,7 @@ class RosVideoWriter(Node):
                                    '-c:v',
                                    'libx264',
                                    '-pix_fmt',
-                                   self.pix_fmt,
+                                   pix_fmt,
                                    self.opt_out_file,
                                    '-y'])
             p1.communicate()
