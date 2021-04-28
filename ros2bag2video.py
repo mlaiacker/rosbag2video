@@ -33,7 +33,7 @@ from ros2bag.api import check_path_exists
 from ros2cli.node import NODE_NAME_PREFIX
 from argparse import FileType
 
-VIDEO_CONVERTER_TO_USE = "ffmpeg"
+VIDEO_CONVERTER_TO_USE = 'ffmpeg'
 
 
 def print_help():
@@ -85,11 +85,11 @@ class RosVideoWriter(Node):
             sys.exit(1)
         try:
             opt_files = self.parseArgs(args[1:])
-            print("FPS (int) = ", self.fps)
-            print("Rate (float) = ", self.rate)
-            print("Topic (str) = ", self.opt_topic)
-            print("Output File (str) = ", self.opt_out_file)
-            print("Verbose (bool) = ", self.opt_verbose)
+            print('FPS (int) = ', self.fps)
+            print('Rate (float) = ', self.rate)
+            print('Topic (str) = ', self.opt_topic)
+            print('Output File (str) = ', self.opt_out_file)
+            print('Verbose (bool) = ', self.opt_verbose)
         except getopt.GetoptError:
             print_help()
             sys.exit(2)
@@ -97,7 +97,7 @@ class RosVideoWriter(Node):
         self.bridge = CvBridge()
         self.frame_no = 1
         self.bag_file = opt_files[0]
-        print("bag_file = ", self.bag_file)
+        print('bag_file = ', self.bag_file)
 
         proc = subprocess.Popen(['ros2',
                                  'bag',
@@ -130,41 +130,41 @@ class RosVideoWriter(Node):
                                str(self.rate)])
 
     def parseArgs(self, args):
-        opts, opt_files = getopt.getopt(args, "hsvr:o:t:p:",
-                                        ["fps=",
-                                         "rate=",
-                                         "ofile=",
-                                         "topic=",
-                                         "start=",
-                                         "end=",
-                                         "prefix="])
+        opts, opt_files = getopt.getopt(args, 'hsvr:o:t:p:',
+                                        ['fps=',
+                                         'rate=',
+                                         'ofile=',
+                                         'topic=',
+                                         'start=',
+                                         'end=',
+                                         'prefix='])
         for opt, arg in opts:
             if opt == '-h':
                 print_help()
                 sys.exit(0)
             elif opt == '-v':
                 self.opt_verbose = True
-            elif opt in ("--fps"):
+            elif opt in ('--fps'):
                 self.fps = int(arg)
-            elif opt in ("-r", "--rate"):
+            elif opt in ('-r', '--rate'):
                 self.rate = float(arg)
-            elif opt in ("-o", "--ofile"):
+            elif opt in ('-o', '--ofile'):
                 self.opt_out_file = arg
-            elif opt in ("-t", "--topic"):
+            elif opt in ('-t', '--topic'):
                 self.opt_topic = arg
             else:
-                print("opz:", opt, 'arg:', arg)
+                print('opz:', opt, 'arg:', arg)
 
         if (self.fps <= 0):
-            print("invalid fps", self.fps)
+            print('Invalid fps', self.fps)
             self.fps = 1
 
         if (self.rate <= 0):
-            print("invalid rate", self.rate)
+            print('Invalid rate', self.rate)
             self.rate = 1
 
         if(self.opt_verbose):
-            print("Using ", self.fps, " FPS")
+            print('Using ', self.fps, ' FPS')
         return opt_files
 
     def filter_image_msgs(self, msgfmt_literal):
@@ -182,30 +182,30 @@ class RosVideoWriter(Node):
         msg_fmt = ''
 
         try:
-            if msg_encoding.find("mono8") != -1:
-                pix_fmt = "gray"
-                msg_fmt = "bgr8"
-            elif msg_encoding.find("8UC1") != -1:
-                pix_fmt = "gray"
-                msg_fmt = "bgr8"
+            if msg_encoding.find('mono8') != -1:
+                pix_fmt = 'gray'
+                msg_fmt = 'bgr8'
+            elif msg_encoding.find('8UC1') != -1:
+                pix_fmt = 'gray'
+                msg_fmt = 'bgr8'
             elif msg_encoding.find("bgra") != -1:
-                pix_fmt = "bgra"
-                msg_fmt = "bgr8"
-            elif msg_encoding.find("bgr8") != -1:
-                pix_fmt = "bgr24"
-                msg_fmt = "bgr8"
-            elif msg_encoding.find("bggr8") != -1:
-                pix_fmt = "bayer_bggr8"
-                msg_fmt = "bayer_bggr8"
-            elif msg_encoding.find("rggb8") != -1:
-                pix_fmt = "bayer_rggb8"
-                msg_fmt = "bayer_bggr8"
-            elif msg_encoding.find("rgb8") != -1:
-                pix_fmt = "rgb24"
-                msg_fmt = "bgr8"
-            elif msg_encoding.find("16UC1") != -1:
-                pix_fmt = "gray16le"
-                msg_fmt = "mono16"
+                pix_fmt = 'bgra'
+                msg_fmt = 'bgr8'
+            elif msg_encoding.find('bgr8') != -1:
+                pix_fmt = 'bgr24'
+                msg_fmt = 'bgr8'
+            elif msg_encoding.find('bggr8') != -1:
+                pix_fmt = 'bayer_bggr8'
+                msg_fmt = 'bayer_bggr8'
+            elif msg_encoding.find('rggb8') != -1:
+                pix_fmt = 'bayer_rggb8'
+                msg_fmt = 'bayer_bggr8'
+            elif msg_encoding.find('rgb8') != -1:
+                pix_fmt = 'rgb24'
+                msg_fmt = 'bgr8'
+            elif msg_encoding.find('16UC1') != -1:
+                pix_fmt = 'gray16le'
+                msg_fmt = 'mono16'
             else:
                 print('Unsupported encoding:', msg_encoding, topic)
                 exit(1)
@@ -215,8 +215,8 @@ class RosVideoWriter(Node):
         except AttributeError:
             # maybe theora packet
             # theora not supported
-            print("Could not handle this format." +
-                  " Maybe thoera packet? theora is not supported.")
+            print('Could not handle this format.' +
+                  ' Maybe thoera packet? theora is not supported.')
             exit(1)
 
     def get_topic_info(self):
@@ -249,11 +249,11 @@ class RosVideoWriter(Node):
             pix_fmt, msg_fmt = self.get_pix_fmt(msg.encoding)
             self.pix_fmt_already_set = True
 
-        if msg.encoding.find("16UC1") != -1:
+        if msg.encoding.find('16UC1') != -1:
             msg.encoding = 'mono16'
         img = self.bridge.imgmsg_to_cv2(msg, msg_fmt)
 
-        filename = str(self.frame_no).zfill(3) + ".png"
+        filename = str(self.frame_no).zfill(3) + '.png'
         cv2.imwrite(filename, img)
 
         if self.frame_no is self.count:
@@ -273,7 +273,7 @@ class RosVideoWriter(Node):
             p1.communicate()
             args = ('rm', '*.png')
             p2 = subprocess.call('%s %s' % args, shell=True)
-            print("Writing to output file, " + self.opt_out_file)
+            print('Writing to output file, ' + self.opt_out_file)
             sys.exit()
         else:
             self.frame_no = self.frame_no + 1
