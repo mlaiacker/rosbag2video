@@ -33,7 +33,7 @@ from ros2bag.api import check_path_exists
 from ros2cli.node import NODE_NAME_PREFIX
 from argparse import FileType
 
-VIDEO_CONVERTER_TO_USE = "ffmpeg" # or you may want to use "avconv"
+VIDEO_CONVERTER_TO_USE = "ffmpeg"
 
 def print_help():
     print('ros2bag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v] [-s] [-t topic] bagfile1 [bagfile2] ...')
@@ -67,6 +67,9 @@ class RosVideoWriter(Node):
         self.opt_out_file = 'output.mp4'
         self.opt_topic = ''
         self.opt_verbose = False
+        self.pix_fmt = ''
+        self.msg_fmt = ''
+        self.pix_fmt_already_set = False
 
         # Checks if a ROS2 bag has been specified in commandline.
         if len(args) < 2:
@@ -153,6 +156,38 @@ class RosVideoWriter(Node):
         elif 'theora_image_transport/msg/Packet' == msgtype_literal:
             return Packet
 
+    def get_pix_fmt(self, msg_encoding):
+        self.pix_fmt = 'yuv420p'
+        try:
+                if msg_encoding.find("mono8")!=-1 or msg_encoding.find("8UC1")!=-1:
+                    self.pix_fmt = "gray"
+                    self.msg_fmt = "bgr8"
+                elif msg_encoding.find("bgra")!=-1 :
+                    self.pix_fmt = "bgra"
+                    self.msg_fmt = "bgr8"
+                elif msg_encoding.find("bgr8")!=-1 :
+                    self.pix_fmt = "bgr24"
+                    self.msg_fmt = "bgr8"
+                elif msg_encoding.find("bggr8")!=-1 :
+                    self.pix_fmt = "bayer_bggr8"
+                    self.msg_fmt = "bayer_bggr8"
+                elif msg_encoding.find("rggb8")!=-1 :
+                    self.pix_fmt = "bayer_rggb8"
+                    self.msg_fmt = "bayer_bggr8"
+                elif msg_encoding.find("rgb8")!=-1 :
+                    self.pix_fmt = "rgb24"
+                    self.msg_fmt = "bgr8"
+                elif msg_encoding.find("16UC1")!=-1 :
+                    self.pix_fmt = "gray16le"
+                    self.msg_fmt = "mono16"
+                else:
+                    print('Unsupported encoding:', msg_encoding, topic)
+                    exit(1)
+
+        except AttributeError:
+            # maybe theora packet
+            # theora not supported
+            print("Could not handle this format. Maybe thoera packet? theora is not supported.")
 
     def get_bagtopic_info(self):
 
@@ -176,15 +211,21 @@ class RosVideoWriter(Node):
 
     def listener_callback(self, msg):
         self.get_logger().info('Image Received [%i/%i]' % (self.frame_no, self.count))
-        img = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
+        if self.pix_fmt_already_set is not True:
+            self.get_pix_fmt(msg.encoding)
+            self.pix_fmt_already_set = True
+
+        if msg.encoding.find("16UC1")!=-1:
+            msg.encoding = 'mono16'
+        img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
 
         filename = str(self.frame_no).zfill(3) + ".png"
-        print("Writing file, ", filename)
         cv2.imwrite(filename, img)
 
         if self.frame_no is self.count:
             # ffmpeg -framerate 10 -pattern_type glob -i '*.png' -c:v libx264 -r 30 -pix_fmt yuv420p out.mp4
-            p1 = subprocess.Popen(['ffmpeg', '-framerate', str(self.fps), '-pattern_type', 'glob', '-i', '*.png', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.opt_out_file])
+            p1 = subprocess.Popen([VIDEO_CONVERTER_TO_USE, '-framerate', str(self.fps), '-pattern_type', 'glob', '-i', '*.png', '-c:v', 'libx264', '-pix_fmt', self.pix_fmt, self.opt_out_file, '-y'])
             p1.communicate()
             args = ('rm', '*.png')
             p2 = subprocess.call('%s %s' % args, shell=True)
