@@ -35,12 +35,13 @@ from argparse import FileType
 
 VIDEO_CONVERTER_TO_USE = 'ffmpeg'
 
-'''
-The print_help function.
-Outputs how a user can configure use of ros2bag2video to generate the video
-from ROS2 bag file.
-'''
+
 def print_help():
+    '''
+    The print_help function.
+    Outputs how a user can configure use of ros2bag2video to generate the video
+    from ROS2 bag file.
+    '''
     print('ros2bag2video.py [--fps 25] [--rate 1] [-o outputfile] [-v] ' +
           '[-s] [-t topic] bagfile1 [bagfile2] ...')
     print()
@@ -69,12 +70,11 @@ def print_help():
     print('-v      Verbose messages are displayed.')
 
 
-'''
-The RosVideoWriter class is a ROS2 node instantiated to subscribe to a
-user-defined ROS2 topic on a user-defined ROS2 bag file.
-'''
 class RosVideoWriter(Node):
-
+    '''
+    The RosVideoWriter class is a ROS2 node instantiated to subscribe to a
+    user-defined ROS2 topic on a user-defined ROS2 bag file.
+    '''
     def __init__(self, args):
         '''
         The constructor.
@@ -336,12 +336,12 @@ class RosVideoWriter(Node):
         else:
             self.frame_no = self.frame_no + 1
 
-'''
-The main function.
-Starts ros2bag2videos ROS2 node and spins it.
-'''
-def main(args=None):
 
+def main(args=None):
+    '''
+    The main function.
+    Starts ros2bag2videos ROS2 node and spins it.
+    '''
     rclpy.init(args=args)
 
     videowriter = RosVideoWriter(args)
