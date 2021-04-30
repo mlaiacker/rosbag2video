@@ -102,7 +102,7 @@ class RosVideoWriter(Node):
             print_help()
             sys.exit(1)
         try:
-            opt_files = self.parseArgs(args[1:])
+            opt_files = self.parse_args(args[1:])
             print('FPS (int) = ', self.fps)
             print('Rate (float) = ', self.rate)
             print('Topic (str) = ', self.opt_topic)
@@ -153,7 +153,7 @@ class RosVideoWriter(Node):
     5. Input Topic Name [opt_topic]
     6. Input Bag File Path Name [opt_files[0]]
     '''
-    def parseArgs(self, args):
+    def parse_args(self, args):
         opts, opt_files = getopt.getopt(args, 'hsvr:o:t:p:',
                                         ['fps=',
                                          'rate=',
