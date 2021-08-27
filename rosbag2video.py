@@ -257,6 +257,12 @@ class RosVideoWriter():
                                 cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
                         elif msg.encoding.find("16UC1")!=-1 :
                             pix_fmt = "gray16le"
+                        elif msg.encoding.find('yuv422')!=-1 :
+                            np_arr = np.fromstring(msg.data, np.uint8)
+                            mat = np.reshape(np_arr, (480,640,2))
+                            cv_image = cv2.cvtColor(mat, cv2.COLOR_YUV2BGR_UYVY)
+                            msg.data = cv_image.tostring()
+                            pix_fmt = 'bgr24'
                         else:
                             print('unsupported encoding:', msg.encoding, topic)
                             #exit(1)
