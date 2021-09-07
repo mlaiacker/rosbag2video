@@ -1,3 +1,4 @@
+
 # Copyright (c) 2021 Bey Hao Yun.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -91,10 +92,15 @@ class RosVideoWriter(Node):
         self.opt_out_file = 'output.mp4'
         self.opt_topic = ''
         self.opt_verbose = False
-        self.pix_fmt_already_set = False
+        
+        # for compressed_image  pix_fmt_already_set = True
+        # self.pix_fmt_already_set = False
+        self.pix_fmt_already_set = True
         self.bridge = CvBridge()
+        
+        # for compressed_image define your format.
         self.pix_fmt = 'yuv420p'
-        self.msg_fmt = ''
+        self.msg_fmt = 'bgr8'
 
         # Checks if a ROS2 bag has been specified in commandline.
         if len(args) < 2:
@@ -299,13 +305,19 @@ class RosVideoWriter(Node):
         if self.pix_fmt_already_set is not True:
             self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
             self.pix_fmt_already_set = True
+        
+        # for compressed_image comment here 
+        # if msg.encoding.find('16UC1') != -1:
+        #     msg.encoding = 'mono16'
+     
+        # for compressed_image comment here 
+        # img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
+        
 
-        if msg.encoding.find('16UC1') != -1:
-            msg.encoding = 'mono16'
+        # for compressed_image
+        img = self.bridge.compressed_imgmsg_to_cv2(msg)
 
-        img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
-
-        filename = str(self.frame_no).zfill(3) + '.png'
+        filename = str(self.frame_no).zfill(4) + '.jpg'
         cv2.imwrite(filename, img)
 
         '''
@@ -314,22 +326,26 @@ class RosVideoWriter(Node):
         kill program once done.
         Otherwise, continue incrementing frame count.
         '''
-        if self.frame_no is self.count:
+        if self.frame_no >= self.count:
+            print('check0')
             p1 = subprocess.Popen([VIDEO_CONVERTER_TO_USE,
                                   '-framerate',
                                    str(self.fps),
                                    '-pattern_type',
                                    'glob',
                                    '-i',
-                                   '*.png',
+                                   '*.jpg',
                                    '-c:v',
                                    'libx264',
                                    '-pix_fmt',
                                    self.pix_fmt,
                                    self.opt_out_file,
                                    '-y'])
+            print('check1')
             p1.communicate()
-            args = ('rm', '*.png')
+            print('check2')
+            args = ('rm', '*.jpg')
+            print('check3')
             p2 = subprocess.call('%s %s' % args, shell=True)
             print('Writing to output file, ' + self.opt_out_file)
             sys.exit()
