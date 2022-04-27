@@ -314,7 +314,7 @@ class RosVideoWriter(Node):
         kill program once done.
         Otherwise, continue incrementing frame count.
         '''
-        if self.frame_no is self.count:
+        if self.frame_no == self.count:
             p1 = subprocess.Popen([VIDEO_CONVERTER_TO_USE,
                                   '-framerate',
                                    str(self.fps),
