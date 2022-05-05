@@ -28,7 +28,7 @@ try:
     from theora_image_transport.msg import Packet
 except Exception:
     pass
-from rosbag2_transport import rosbag2_transport_py
+# from rosbag2_transport import rosbag2_transport_py
 from ros2bag.api import check_path_exists
 from ros2cli.node import NODE_NAME_PREFIX
 from argparse import FileType
