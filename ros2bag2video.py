@@ -28,7 +28,7 @@ try:
     from theora_image_transport.msg import Packet
 except Exception:
     pass
-from rosbag2_transport import rosbag2_transport_py
+# from rosbag2_transport import rosbag2_transport_py
 from ros2bag.api import check_path_exists
 from ros2cli.node import NODE_NAME_PREFIX
 from argparse import FileType
@@ -230,7 +230,7 @@ class RosVideoWriter(Node):
                 msg_fmt = 'bayer_bggr8'
             elif msg_encoding.find('rggb8') != -1:
                 pix_fmt = 'bayer_rggb8'
-                msg_fmt = 'bayer_bggr8'
+                msg_fmt = 'bayer_rggb8'
             elif msg_encoding.find('rgb8') != -1:
                 pix_fmt = 'rgb24'
                 msg_fmt = 'bgr8'
