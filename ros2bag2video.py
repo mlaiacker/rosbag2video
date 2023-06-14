@@ -137,6 +137,10 @@ class RosVideoWriter(Node):
             sys.exit(2)
         # Params OK so start extraction.
         self.bag_file = opt_files[0]
+        self._read_info_process = 0
+        self._play_process = 0
+        self._video_write_process = 0
+        self._file_cleanup_process = 0
         self._read_ros_bag_info()
         # Set up subscriber for the image message.
         self.subscription = self.create_subscription(
@@ -149,8 +153,8 @@ class RosVideoWriter(Node):
         rosbag2_info = ""
         with subprocess.Popen(
             ["ros2", "bag", "info", self.bag_file], stdout=subprocess.PIPE
-        ) as proc:
-            rosbag2_info = str(proc.stdout.read(), "utf-8").splitlines()
+        ) as self._read_info_process:
+            rosbag2_info = str(self._read_info_process.stdout.read(), "utf-8").splitlines()
         self.msgfmt_literal, self.count = self.get_topic_info(rosbag2_info)
         self.msgtype = self.filter_image_msgs(self.msgfmt_literal)
 
@@ -274,9 +278,8 @@ class RosVideoWriter(Node):
             )
             self.exit(1)
 
-        print("AJB: pix_fmt:", pix_fmt, "msg_fmt", msg_fmt)
+        print("pix_fmt:", pix_fmt, "msg_fmt", msg_fmt)
         return pix_fmt, msg_fmt
-
 
     """
     Parses 'ros2 bag info input_bag/' terminal output to get the following
@@ -306,7 +309,7 @@ class RosVideoWriter(Node):
                     # if 'Serialization' in parse_line[word_index]:
                     #     serialtype = parse_line[word_index+2]
 
-        # print("AJB: gti: returning msgtype:", msgtype, "count:", count)
+        # print("Returning msgtype:", msgtype, "count:", count)
         return msgtype, count
 
     """
@@ -345,7 +348,7 @@ class RosVideoWriter(Node):
         """
         if self.frame_no == self.count:
             print("Writing to output file, " + self.opt_out_file)
-            p1 = subprocess.Popen(
+            self._video_write_process = subprocess.Popen(
                 [
                     VIDEO_CONVERTER_TO_USE,
                     "-framerate",
@@ -362,12 +365,12 @@ class RosVideoWriter(Node):
                     "-y",
                 ]
             )
-            p1.communicate()
+            self._video_write_process.communicate()
             # Now remove all the jpeg image files.
             args = ("rm", "*.png")
-            p2 = subprocess.call("%s %s" % args, shell=True)
+            self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
             print("Complete.")
-            sys.exit()
+            self.exit(0)
         else:
             self.frame_no = self.frame_no + 1
 
@@ -375,6 +378,13 @@ class RosVideoWriter(Node):
         # Close any running processes.
         if self._play_process:
             self._play_process.kill()
+            self._play_process.join()
+        if self._video_write_process:
+            self._video_write_process.kill()
+            self._video_write_process.join()
+        if self._file_cleanup_process:
+            self._file_cleanup_process.kill()
+            self._file_cleanup_process.join()
         if value != 0:
             sys.exit(value)
 
