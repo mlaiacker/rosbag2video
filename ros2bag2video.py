@@ -120,7 +120,7 @@ class RosVideoWriter(Node):
         self.pix_fmt = "yuv420p"
         self.msg_fmt = ""
 
-        # Checks if a ROS2 bag has been specified in commandline.
+        # Checks if a ROS2 bag has been specified in command line.
         if len(args) < 2:
             print("Please specify ROS2 bag file!")
             print_help()
@@ -143,6 +143,7 @@ class RosVideoWriter(Node):
         self._file_cleanup_process = 0
         self._read_ros_bag_info()
         # Set up subscriber for the image message.
+        print("AJB: subscribing to msg: ", self.msgtype, "on topic: ", self.opt_topic )
         self.subscription = self.create_subscription(
             self.msgtype, self.opt_topic, self.listener_callback, 10
         )
@@ -162,12 +163,13 @@ class RosVideoWriter(Node):
         # print(rosbag2_info)
         print("ROS Message name = ", self.msgfmt_literal)
         print("Image count = ", self.count)
-        # print("msgtype = ", self.msgtype)
+        print("msgtype = ", self.msgtype)
 
     def _playback_ros_bag(self):
         print("Starting ROS bag playback...")
         process = subprocess.Popen(
-            ["ros2", "bag", "play", self.bag_file, "-r", str(self.rate)]
+            ["ros2", "bag", "play", self.bag_file, "-r", str(self.rate),
+             "--topics", "/camera_node/image_raw/compressed"]
         )
         return process
 
@@ -299,6 +301,7 @@ class RosVideoWriter(Node):
         # serialtype = ''  # Unused
 
         for line in rosbag2_info:
+            # print("gti: line:", line)
             if self.opt_topic in line:
                 parse_line = line.split()
                 for word_index in range(0, len(parse_line)):
@@ -328,16 +331,21 @@ class RosVideoWriter(Node):
     def listener_callback(self, msg):
         self.get_logger().info("Image Received [%i/%i]" % (self.frame_no, self.count))
 
-        if not self.pix_fmt_already_set:
-            self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
-            self.pix_fmt_already_set = True
+        # Original code.  Doesn't work for compressed images.
+        # if not self.pix_fmt_already_set:
+        #     self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
+        #     self.pix_fmt_already_set = True
+        #
+        # if msg.encoding.find("16UC1") != -1:
+        #     msg.encoding = "mono16"
 
-        if msg.encoding.find("16UC1") != -1:
-            msg.encoding = "mono16"
+        # HACK to get this working...
+        self.pix_fmt = "rgb24"
+        self.msg_fmt = "rgb8"
+        # print("AJB: msg: ", msg)
 
-        img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
-
-        filename = str(self.frame_no).zfill(3) + ".png"
+        img = self.bridge.compressed_imgmsg_to_cv2(msg, self.msg_fmt)
+        filename = str(self.frame_no).zfill(4) + ".png"
         cv2.imwrite(filename, img)
 
         """
@@ -348,34 +356,38 @@ class RosVideoWriter(Node):
         """
         if self.frame_no == self.count:
             print("Writing to output file, " + self.opt_out_file)
-            self._video_write_process = subprocess.Popen(
-                [
-                    VIDEO_CONVERTER_TO_USE,
-                    "-framerate",
-                    str(self.fps),
-                    "-pattern_type",
-                    "glob",
-                    "-i",
-                    "*.png",
-                    "-c:v",
-                    "libx264",
-                    "-pix_fmt",
-                    self.pix_fmt,
-                    self.opt_out_file,
-                    "-y",
-                ]
-            )
-            self._video_write_process.communicate()
-            # Now remove all the jpeg image files.
-            args = ("rm", "*.png")
-            self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
-            print("Complete.")
-            self.exit(0)
+            # self._video_write_process = subprocess.Popen(
+            #     [
+            #         VIDEO_CONVERTER_TO_USE,
+            #         "-framerate",
+            #         str(self.fps),
+            #         "-pattern_type",
+            #         "glob",
+            #         "-i",
+            #         "*.png",
+            #         "-c:v",
+            #         "libx264",
+            #         "-pix_fmt",
+            #         self.pix_fmt,
+            #         self.opt_out_file,
+            #         "-y",
+            #     ]
+            # )
+            # self._video_write_process.communicate()
+            # # Now remove all the jpeg image files.
+            # args = ("rm ", "*.png")
+            # self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
+            # print("Complete.")
+            # self.exit(0)
         else:
             self.frame_no = self.frame_no + 1
 
     def exit(self, value):
         # Close any running processes.
+        # FIXME AJB Tidy this up!
+        if self._read_info_process:
+            self._read_info_process.kill()
+            self._read_info_process.join()
         if self._play_process:
             self._play_process.kill()
             self._play_process.join()
