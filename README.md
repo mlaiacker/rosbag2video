@@ -48,17 +48,17 @@ ffmpeg needs to be installed!
 # Source ROS2 Humble
 source /opt/ros/humble/setup.bash
 
-# Run the script
+# Run the script.  Rate greater than 5.0 leads to dropped frames.
 ./ros2bag2video.py --fps=25 --rate=5.0 -t /camera_node/image_raw/compressed ~/Documents/rosbag2_2023_04_19-14_44_56
 
 
 FPS (int) =  25
 Rate (float) =  1.0
-Topic (str) =  /camera/color/image_raw
+Topic (str) =  /camera_node/image_raw/compressed
 Output File (str) =  output.mp4
 Verbose (bool) =  False
-bag_file =  rosbag2_2020_10_09-16_34_25/
-[INFO] [1619616391.700087224] [rosbag2_storage]: Opened database './rosbag2_2020_10_09-16_34_25/rosbag2_2020_10_09-16_34_25_0.db3' for READ_ONLY.
+bag_file =  rosbag2_2023_04_19-14_44_56/
+[INFO] [1619616391.700087224] [rosbag2_storage]: Opened database './rosbag2_2023_04_19-14_44_56/rosbag2_2023_04_19-14_44_56.db3' for READ_ONLY.
 [INFO] [1619616392.055535299] [ros2bag2videos]: Image Received [1/28]
 [INFO] [1619616392.077294702] [ros2bag2videos]: Image Received [2/28]
 [INFO] [1619616392.299152538] [ros2bag2videos]: Image Received [3/28]

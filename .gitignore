@@ -56,4 +56,6 @@ docs/_build/
 # PyBuilder
 target/
 
+# Ignore intermediate and output files.
 *.png
+*.mp4
