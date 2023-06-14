@@ -16,8 +16,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-# import os
-import time
 import sys
 import cv2
 import rclpy
@@ -33,10 +31,6 @@ try:
     from theora_image_transport.msg import Packet
 except Exception:
     pass
-# from rosbag2_transport import rosbag2_transport_py
-# from ros2bag.api import check_path_exists
-# from ros2cli.node import NODE_NAME_PREFIX
-# from argparse import FileType
 
 VIDEO_CONVERTER_TO_USE = "ffmpeg"
 
@@ -135,6 +129,7 @@ class RosVideoWriter(Node):
         except getopt.GetoptError:
             print_help()
             sys.exit(2)
+
         # Params OK so start extraction.
         self.bag_file = opt_files[0]
         self._read_info_process = 0
@@ -143,7 +138,7 @@ class RosVideoWriter(Node):
         self._file_cleanup_process = 0
         self._read_ros_bag_info()
         # Set up subscriber for the image message.
-        print("AJB: subscribing to msg: ", self.msgtype, "on topic: ", self.opt_topic )
+        print("AJB: subscribing to msg: ", self.msgtype, "on topic: ", self.opt_topic)
         self.subscription = self.create_subscription(
             self.msgtype, self.opt_topic, self.listener_callback, 10
         )
@@ -155,7 +150,9 @@ class RosVideoWriter(Node):
         with subprocess.Popen(
             ["ros2", "bag", "info", self.bag_file], stdout=subprocess.PIPE
         ) as self._read_info_process:
-            rosbag2_info = str(self._read_info_process.stdout.read(), "utf-8").splitlines()
+            rosbag2_info = str(
+                self._read_info_process.stdout.read(), "utf-8"
+            ).splitlines()
         self.msgfmt_literal, self.count = self.get_topic_info(rosbag2_info)
         self.msgtype = self.filter_image_msgs(self.msgfmt_literal)
 
@@ -168,8 +165,16 @@ class RosVideoWriter(Node):
     def _playback_ros_bag(self):
         print("Starting ROS bag playback...")
         process = subprocess.Popen(
-            ["ros2", "bag", "play", self.bag_file, "-r", str(self.rate),
-             "--topics", "/camera_node/image_raw/compressed"]
+            [
+                "ros2",
+                "bag",
+                "play",
+                self.bag_file,
+                "-r",
+                str(self.rate),
+                "--topics",
+                "/camera_node/image_raw/compressed",
+            ]
         )
         return process
 
@@ -356,29 +361,30 @@ class RosVideoWriter(Node):
         """
         if self.frame_no == self.count:
             print("Writing to output file, " + self.opt_out_file)
-            # self._video_write_process = subprocess.Popen(
-            #     [
-            #         VIDEO_CONVERTER_TO_USE,
-            #         "-framerate",
-            #         str(self.fps),
-            #         "-pattern_type",
-            #         "glob",
-            #         "-i",
-            #         "*.png",
-            #         "-c:v",
-            #         "libx264",
-            #         "-pix_fmt",
-            #         self.pix_fmt,
-            #         self.opt_out_file,
-            #         "-y",
-            #     ]
-            # )
-            # self._video_write_process.communicate()
-            # # Now remove all the jpeg image files.
-            # args = ("rm ", "*.png")
-            # self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
-            # print("Complete.")
-            # self.exit(0)
+            self._video_write_process = subprocess.Popen(
+                [
+                    VIDEO_CONVERTER_TO_USE,
+                    "-framerate",
+                    str(self.fps),
+                    "-pattern_type",
+                    "glob",
+                    "-i",
+                    "*.png",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    self.pix_fmt,
+                    self.opt_out_file,
+                    "-y",
+                ]
+            )
+            self._video_write_process.communicate()
+            self._video_write_process.join()
+            # Now remove all the jpeg image files.
+            args = ("rm ", "*.png")
+            self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
+            print("Complete.")
+            sys.exit(0)
         else:
             self.frame_no = self.frame_no + 1
 

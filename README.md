@@ -1,14 +1,14 @@
 # **rosbag2video**
 
-    rosbag2video.py
-    rosbag to video file conversion tool
-    by Maximilian Laiacker 2020
-    post@mlaiacker.de
+rosbag2video.py
+rosbag to video file conversion tool
+by Maximilian Laiacker 2020
+post@mlaiacker.de
 
-    with contributions from Abel Gabor 2019, Bey Hao Yun 2021
-    baquatelle@gmail.com, beyhy94@gmail.com
+with contributions from Abel Gabor 2019, Bey Hao Yun 2021
+baquatelle@gmail.com, beyhy94@gmail.com
 
-## **Install**:
+## **Install**
 
 **ffmpeg** is needed and can be installed on **Ubuntu** with:
 
@@ -22,8 +22,8 @@ sudo apt install ffmpeg
 sudo apt install python3-sensor-msgs python3-opencv ros-foxy-rosbag2-transport
 ```
 
+## **Usage**
 
-## **Usage**:
 ``` bash
 ros2bag2video.py [--fps 25] [--rate 1.0] [-o outputfile] [-v] [-s] [-t topic] bagfile1
 
@@ -41,13 +41,15 @@ ffmpeg needs to be installed!
 --topic (-t) Only the images from topic "topic" are used for the video output.
 -v      Verbose messages are displayed.
 ```
-## **Example Output**:
+
+## **Example Output**
+
 ```bash
-# Source ROS2 Foxy
-source /opt/ros/foxy/setup.bash
+# Source ROS2 Humble
+source /opt/ros/humble/setup.bash
 
 # Run the script
-./ros2bag2video.py --topic /camera/color/image_raw rosbag2_2020_10_09-16_34_25/
+./ros2bag2video.py --fps=25 --rate=5.0 -t /camera_node/image_raw/compressed ~/Documents/rosbag2_2023_04_19-14_44_56
 
 
 FPS (int) =  25
