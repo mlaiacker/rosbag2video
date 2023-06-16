@@ -1,12 +1,18 @@
 # **rosbag2video**
 
+```text
 rosbag2video.py
 rosbag to video file conversion tool
 by Maximilian Laiacker 2020
 post@mlaiacker.de
 
-with contributions from Abel Gabor 2019, Bey Hao Yun 2021
-baquatelle@gmail.com, beyhy94@gmail.com
+with contributions from
+Abel Gabor 2019,
+Bey Hao Yun 2021
+baquatelle@gmail.com,
+beyhy94@gmail.com
+a.j.blight@leeds.ac.uk
+```
 
 ## **Install**
 
@@ -48,7 +54,7 @@ ffmpeg needs to be installed!
 # Source ROS2 Humble
 source /opt/ros/humble/setup.bash
 
-# Run the script.  Rate greater than 5.0 leads to dropped frames.
+# Run the script.  Rate greater than 5.0 leads to dropped frames on the test PC.
 ./ros2bag2video.py --fps=25 --rate=5.0 -t /camera_node/image_raw/compressed ~/Documents/rosbag2_2023_04_19-14_44_56
 
 
