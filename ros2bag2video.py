@@ -173,13 +173,16 @@ class RosVideoWriter(Node):
                 "-r",
                 str(self.rate),
                 "--topics",
-                "/camera_node/image_raw/compressed",
+                # HACK AJB Use this for SkateBot
+                # "/camera_node/image_raw/compressed",
+                # HACK AJB Use this for joeys.
+                "/je7c/camera/compressed",
             ]
         )
         return process
 
     """
-    Parses user input from commandline to get the following information.
+    Parses user input from command line to get the following information.
     1. Verbose [opt_verbose]
     2. FPS [fps]
     3. Rate [rate]
