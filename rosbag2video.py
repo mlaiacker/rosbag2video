@@ -255,8 +255,10 @@ class RosVideoWriter():
                             pix_fmt = "rgb24"
                             if self.opt_display_images:
                                 cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-                        elif msg.encoding.find("16UC1")!=-1 :
+                        elif msg.encoding.find("16UC1")!=-1 or msg.encoding.find("mono16")!=-1:
                             pix_fmt = "gray16le"
+                            if self.opt_display_images:
+                                cv_image = bridge.imgmsg_to_cv2(msg,"mono16") 
                         elif msg.encoding.find('yuv422')!=-1 :
                             np_arr = np.fromstring(msg.data, np.uint8)
                             mat = np.reshape(np_arr, (480,640,2))
