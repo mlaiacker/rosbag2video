@@ -194,7 +194,7 @@ class RosVideoWriter(Node):
 
     def parse_args(self, args):
         opts, opt_files = getopt.getopt(
-            args, "hsvr:o:t:p:", ["fps=", "rate=", "ofile=", "topic="]
+            args, "hsvr:o:t:p:", ["fps=", "rate=", "ofile=", "topic=", "save-images"]
         )
         for opt, arg in opts:
             if opt == "-h":
