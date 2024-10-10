@@ -17,6 +17,7 @@
 #
 
 import sys
+import os
 import cv2
 import rclpy
 import getopt
@@ -85,6 +86,8 @@ def print_help():
         + "video output."
     )
     print("-v      Verbose messages are displayed.")
+    print("--save-images  Saves images")
+    print("               Default is False")
 
 
 class RosVideoWriter(Node):
@@ -113,6 +116,7 @@ class RosVideoWriter(Node):
         self.bridge = CvBridge()
         self.pix_fmt = "yuv420p"
         self.msg_fmt = ""
+        self.save_img = False
 
         # Checks if a ROS2 bag has been specified in command line.
         if len(args) < 2:
@@ -173,10 +177,7 @@ class RosVideoWriter(Node):
                 "-r",
                 str(self.rate),
                 "--topics",
-                # HACK AJB Use this for SkateBot
-                # "/camera_node/image_raw/compressed",
-                # HACK AJB Use this for joeys.
-                "/je7c/camera/compressed",
+                str(self.opt_topic)
             ]
         )
         return process
@@ -193,7 +194,7 @@ class RosVideoWriter(Node):
 
     def parse_args(self, args):
         opts, opt_files = getopt.getopt(
-            args, "hsvr:o:t:p:", ["fps=", "rate=", "ofile=", "topic="]
+            args, "hsvr:o:t:p:", ["fps=", "rate=", "ofile=", "topic=", "save-images"]
         )
         for opt, arg in opts:
             if opt == "-h":
@@ -209,6 +210,8 @@ class RosVideoWriter(Node):
                 self.opt_out_file = arg
             elif opt in ("-t", "--topic"):
                 self.opt_topic = arg
+            elif opt in ("--save-images"):
+                self.save_img = True
             else:
                 print("opz:", opt, "arg:", arg)
 
@@ -310,8 +313,9 @@ class RosVideoWriter(Node):
 
         for line in rosbag2_info:
             # print("gti: line:", line)
-            if self.opt_topic in line:
+            if self.opt_topic + " " in line: # Addresses similar topic names
                 parse_line = line.split()
+                self.get_logger().info(line)
                 for word_index in range(0, len(parse_line)):
                     if "Type:" in parse_line[word_index]:
                         msgtype = parse_line[word_index + 1]
@@ -319,8 +323,13 @@ class RosVideoWriter(Node):
                         count = int(parse_line[word_index + 1])
                     # if 'Serialization' in parse_line[word_index]:
                     #     serialtype = parse_line[word_index+2]
+        if msgtype == "":
+            self.get_logger().error("Type not found in bag info: " + line)
+            sys.exit()
+        if count == 0:
+            self.get_logger().error("Count not found in bag info: " + line)
+            sys.exit()
 
-        # print("Returning msgtype:", msgtype, "count:", count)
         return msgtype, count
 
     """
@@ -337,23 +346,28 @@ class RosVideoWriter(Node):
     """
 
     def listener_callback(self, msg):
-        self.get_logger().info("Image Received [%i/%i]" % (self.frame_no, self.count))
+        self.get_logger().info("Image received [%i/%i] of type %s" % (self.frame_no, self.count, str(self.msgtype)))
 
-        # Original code.  Doesn't work for compressed images.
-        # if not self.pix_fmt_already_set:
-        #     self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
-        #     self.pix_fmt_already_set = True
-        #
-        # if msg.encoding.find("16UC1") != -1:
-        #     msg.encoding = "mono16"
+        image_dir = "ros2bag_images"
 
-        # HACK to get this working...
-        self.pix_fmt = "rgb24"
-        self.msg_fmt = "rgb8"
-        # print("AJB: msg: ", msg)
+        if not self.pix_fmt_already_set:
+            if self.msgtype == Image:
+                self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
+                self.pix_fmt_already_set = True
+                if msg.encoding.find("16UC1") != -1:
+                    msg.encoding = "mono16"
+            if self.msgtype == CompressedImage:
+                self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.format)
+                self.pix_fmt_already_set = True
+        
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
 
-        img = self.bridge.compressed_imgmsg_to_cv2(msg, self.msg_fmt)
-        filename = str(self.frame_no).zfill(4) + ".png"
+        if self.msgtype == Image:
+            img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
+        elif self.msgtype == CompressedImage:
+            img = self.bridge.compressed_imgmsg_to_cv2(msg, self.msg_fmt)
+        filename = image_dir + "/" + str(self.frame_no).zfill(4) + ".png"
         cv2.imwrite(filename, img)
 
         """
@@ -372,7 +386,7 @@ class RosVideoWriter(Node):
                     "-pattern_type",
                     "glob",
                     "-i",
-                    "*.png",
+                    image_dir + "/*.png",
                     "-c:v",
                     "libx264",
                     "-pix_fmt",
@@ -382,10 +396,11 @@ class RosVideoWriter(Node):
                 ]
             )
             self._video_write_process.communicate()
-            self._video_write_process.join()
-            # Now remove all the jpeg image files.
-            args = ("rm ", "*.png")
-            self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
+            # self._video_write_process.join()
+            # Now remove all the image files.
+            if not self.save_img:
+                args = ("rm ", image_dir + "/*.png") # This is still dangerous but better than before
+                self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
             print("Complete.")
             sys.exit(0)
         else:
@@ -428,3 +443,4 @@ def main(args=None):
 
 if __name__ == "__main__":
     main(sys.argv)
+
