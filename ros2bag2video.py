@@ -385,8 +385,8 @@ class RosVideoWriter(Node):
             )
             self._video_write_process.communicate()
             self._video_write_process.join()
-            # Now remove all the jpeg image files.
-            args = ("rm ", "*.png")
+            # Now remove all the image files.
+            # args = ("rm ", "*.png") # THIS IS DANGEROUS
             self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
             print("Complete.")
             sys.exit(0)
