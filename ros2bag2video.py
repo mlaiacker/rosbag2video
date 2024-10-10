@@ -17,6 +17,7 @@
 #
 
 import sys
+import os
 import cv2
 import rclpy
 import getopt
@@ -85,6 +86,8 @@ def print_help():
         + "video output."
     )
     print("-v      Verbose messages are displayed.")
+    print("--save-images  Saves images")
+    print("               Default is False")
 
 
 class RosVideoWriter(Node):
@@ -113,6 +116,7 @@ class RosVideoWriter(Node):
         self.bridge = CvBridge()
         self.pix_fmt = "yuv420p"
         self.msg_fmt = ""
+        self.save_img = False
 
         # Checks if a ROS2 bag has been specified in command line.
         if len(args) < 2:
@@ -206,6 +210,8 @@ class RosVideoWriter(Node):
                 self.opt_out_file = arg
             elif opt in ("-t", "--topic"):
                 self.opt_topic = arg
+            elif opt in ("--save-images"):
+                self.save_img = True
             else:
                 print("opz:", opt, "arg:", arg)
 
@@ -342,6 +348,8 @@ class RosVideoWriter(Node):
     def listener_callback(self, msg):
         self.get_logger().info("Image received [%i/%i] of type %s" % (self.frame_no, self.count, str(self.msgtype)))
 
+        image_dir = "ros2bag_images"
+
         if not self.pix_fmt_already_set:
             if self.msgtype == Image:
                 self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
@@ -352,10 +360,14 @@ class RosVideoWriter(Node):
                 self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.format)
                 self.pix_fmt_already_set = True
         
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
 
-
-        img = self.bridge.compressed_imgmsg_to_cv2(msg, self.msg_fmt)
-        filename = str(self.frame_no).zfill(4) + ".png"
+        if self.msgtype == Image:
+            img = self.bridge.imgmsg_to_cv2(msg, self.msg_fmt)
+        elif self.msgtype == CompressedImage:
+            img = self.bridge.compressed_imgmsg_to_cv2(msg, self.msg_fmt)
+        filename = image_dir + "/" + str(self.frame_no).zfill(4) + ".png"
         cv2.imwrite(filename, img)
 
         """
@@ -374,7 +386,7 @@ class RosVideoWriter(Node):
                     "-pattern_type",
                     "glob",
                     "-i",
-                    "*.png",
+                    image_dir + "/*.png",
                     "-c:v",
                     "libx264",
                     "-pix_fmt",
@@ -384,9 +396,9 @@ class RosVideoWriter(Node):
                 ]
             )
             self._video_write_process.communicate()
-            self._video_write_process.join()
+            # self._video_write_process.join()
             # Now remove all the image files.
-            # args = ("rm ", "*.png") # THIS IS DANGEROUS
+            args = ("rm ", image_dir + "/*.png") # This is still dangerous but better than before
             self._file_cleanup_process = subprocess.call("%s %s" % args, shell=True)
             print("Complete.")
             sys.exit(0)
@@ -430,3 +442,4 @@ def main(args=None):
 
 if __name__ == "__main__":
     main(sys.argv)
+
