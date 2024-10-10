@@ -173,10 +173,7 @@ class RosVideoWriter(Node):
                 "-r",
                 str(self.rate),
                 "--topics",
-                # HACK AJB Use this for SkateBot
-                # "/camera_node/image_raw/compressed",
-                # HACK AJB Use this for joeys.
-                "/je7c/camera/compressed",
+                str(self.opt_topic)
             ]
         )
         return process
@@ -310,8 +307,9 @@ class RosVideoWriter(Node):
 
         for line in rosbag2_info:
             # print("gti: line:", line)
-            if self.opt_topic in line:
+            if self.opt_topic + " " in line: # Addresses similar topic names
                 parse_line = line.split()
+                self.get_logger().info(line)
                 for word_index in range(0, len(parse_line)):
                     if "Type:" in parse_line[word_index]:
                         msgtype = parse_line[word_index + 1]
@@ -319,8 +317,13 @@ class RosVideoWriter(Node):
                         count = int(parse_line[word_index + 1])
                     # if 'Serialization' in parse_line[word_index]:
                     #     serialtype = parse_line[word_index+2]
+        if msgtype == "":
+            self.get_logger().error("Type not found in bag info: " + line)
+            sys.exit()
+        if count == 0:
+            self.get_logger().error("Count not found in bag info: " + line)
+            sys.exit()
 
-        # print("Returning msgtype:", msgtype, "count:", count)
         return msgtype, count
 
     """
@@ -337,20 +340,19 @@ class RosVideoWriter(Node):
     """
 
     def listener_callback(self, msg):
-        self.get_logger().info("Image Received [%i/%i]" % (self.frame_no, self.count))
+        self.get_logger().info("Image received [%i/%i] of type %s" % (self.frame_no, self.count, str(self.msgtype)))
 
-        # Original code.  Doesn't work for compressed images.
-        # if not self.pix_fmt_already_set:
-        #     self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
-        #     self.pix_fmt_already_set = True
-        #
-        # if msg.encoding.find("16UC1") != -1:
-        #     msg.encoding = "mono16"
+        if not self.pix_fmt_already_set:
+            if self.msgtype == Image:
+                self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.encoding)
+                self.pix_fmt_already_set = True
+                if msg.encoding.find("16UC1") != -1:
+                    msg.encoding = "mono16"
+            if self.msgtype == CompressedImage:
+                self.pix_fmt, self.msg_fmt = self.get_pix_fmt(msg.format)
+                self.pix_fmt_already_set = True
+        
 
-        # HACK to get this working...
-        self.pix_fmt = "rgb24"
-        self.msg_fmt = "rgb8"
-        # print("AJB: msg: ", msg)
 
         img = self.bridge.compressed_imgmsg_to_cv2(msg, self.msg_fmt)
         filename = str(self.frame_no).zfill(4) + ".png"
