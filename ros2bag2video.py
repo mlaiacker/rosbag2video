@@ -27,7 +27,7 @@ from cv_bridge import CvBridge
 from rosidl_runtime_py.utilities import get_message
 from rclpy.serialization import deserialize_message
 
-def save_image_from_rosbag(cursor, topic_name, message_index=0):
+def save_image_from_rosbag(cvbridge, cursor, topic_name, message_index=0):
     # Query for the messages in the specified ROS 2 topic
     query = """
     SELECT data
@@ -48,7 +48,7 @@ def save_image_from_rosbag(cursor, topic_name, message_index=0):
 
     # Use CvBridge to convert the ROS Image message to an OpenCV image
     try:
-        cv_image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+        cv_image = cvbridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
     except Exception as e:
         print(f"[ERROR] - Error converting image: {e}")
         return
@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
     message_index = 0
     for i in range(message_count):
-        save_image_from_rosbag(cursor, topic_name, message_index)
+        save_image_from_rosbag(bridge, cursor, topic_name, message_index)
         message_index = message_index + 1
         print(f"[INFO] - Processing messages: [{i+1}/{message_count}]...", end='\r')
         sys.stdout.flush()
