@@ -94,6 +94,13 @@ ffmpeg needs to be installed!
 For running ROS 1 `rosbag2video.py`:
 
 ```bash
+docker run -it --rm \
+    --name rosbag2video_c \
+    -v ./:/rosbag2video_workspace \
+  ros2bagvideo:noetic bash 
+```
+
+```bash
 source /opt/ros/noetic/setup.bash
 ```
 
@@ -102,8 +109,14 @@ python3 rosbag2video.py -t <topic_name> -o <output_video_file_name> <bag_file_na
 # Eg. python3 rosbag2video.py -t /cam0/image_raw -o myvideo.mp4 ar_tracking_1.bag
 ```
 
-
 For running ROS 2 `ros2bag2video.py`:
+
+```bash
+docker run -it --rm \
+    --name ros2bag2video_c \
+    -v ./:/ros2bag2video_workspace \
+  ros2bagvideo:humble bash 
+```
 
 ```bash
 source /opt/ros/humble/setup.bash
