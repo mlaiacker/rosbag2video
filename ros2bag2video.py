@@ -27,6 +27,44 @@ from cv_bridge import CvBridge
 from rosidl_runtime_py.utilities import get_message
 from rclpy.serialization import deserialize_message
 
+IS_VERBOSE = False
+MSG_ENCODING = ''
+
+def get_pix_fmt(msg_encoding):
+        pix_fmt = "yuv420p"
+
+        if IS_VERBOSE:
+            print("[INFO] - AJB: Encoding:", msg_encoding)
+
+        try:
+            if msg_encoding.find("mono8") != -1:
+                pix_fmt = "gray"
+            elif msg_encoding.find("8UC1") != -1:
+                pix_fmt = "gray"
+            elif msg_encoding.find("bgra") != -1:
+                pix_fmt = "bgra"
+            elif msg_encoding.find("bgr8") != -1:
+                pix_fmt = "bgr24"
+            elif msg_encoding.find("bggr8") != -1:
+                pix_fmt = "bayer_bggr8"
+            elif msg_encoding.find("rggb8") != -1:
+                pix_fmt = "bayer_rggb8"
+            elif msg_encoding.find("rgb8") != -1:
+                pix_fmt = "rgb24"
+            elif msg_encoding.find("16UC1") != -1:
+                pix_fmt = "gray16le"
+            else:
+                print(f"[WARN] - Unsupported encoding: {msg_encoding}. Defaulting pix_fmt to {pix_fmt}...")
+        except AttributeError:
+            # Maybe this is a theora packet which is unsupported.
+            print(
+                "[ERROR] - Could not handle this format."
+                + " Maybe thoera packet? theora is not supported."
+            )
+            sys.exit(1)
+        if IS_VERBOSE:
+            print("[INFO] - pix_fmt:", pix_fmt)
+        return pix_fmt
 
 def save_image_from_rosbag(cvbridge, cursor, topic_name, message_index=0):
     # Query for the messages in the specified ROS 2 topic
@@ -46,6 +84,9 @@ def save_image_from_rosbag(cvbridge, cursor, topic_name, message_index=0):
     # Deserialize the sensor_msgs/msg/Image message
     msg_type = get_message('sensor_msgs/msg/Image')
     msg = deserialize_message(message_data[0], msg_type)
+
+    global MSG_ENCODING
+    MSG_ENCODING = msg.encoding
 
     # Use CvBridge to convert the ROS Image message to an OpenCV image
     try:
@@ -154,7 +195,8 @@ def create_video_from_images(image_folder, output_video, framerate=30):
         for image in images:
             f.write(f"file '{os.path.join(image_folder, image)}'\n")
 
-    # TODO(cardboardcode): Remove hardcoded pix_fmt.
+    # Determine pix_fmt from ROS msg encoding.
+    pix_fmt = get_pix_fmt(MSG_ENCODING)
 
     command = []
     # Build the ffmpeg command
@@ -166,7 +208,7 @@ def create_video_from_images(image_folder, output_video, framerate=30):
             '-safe', '0',
             '-i', IMAGE_TXT_FILE,  # Input list of images
             '-c:v', 'libx264',
-            '-pix_fmt', 'yuv420p',
+            '-pix_fmt', pix_fmt,
             output_video,
             "-y"
         ]
@@ -178,7 +220,7 @@ def create_video_from_images(image_folder, output_video, framerate=30):
             '-safe', '0',
             '-i', IMAGE_TXT_FILE,  # Input list of images
             '-c:v', 'libx264',
-            '-pix_fmt', 'yuv420p',
+            '-pix_fmt', pix_fmt,
             '-loglevel', 'error', '-stats',
             output_video,
             "-y"
@@ -256,7 +298,6 @@ if __name__ == "__main__":
     db_path, yaml_path = get_db3_filepath(args.ifile)
     topic_name = args.topic
 
-    global IS_VERBOSE
     IS_VERBOSE = args.verbose
 
     # Check if input fps is valid.
