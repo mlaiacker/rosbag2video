@@ -15,7 +15,7 @@ import roslib
 import rospy
 import rosbag
 import sys, getopt
-import os
+import datetime
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Image
 import cv2
@@ -139,6 +139,7 @@ class RosVideoWriter():
 
 
     def write_output_video(self, msg, topic, t, video_fmt, pix_fmt = ""):
+        timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         # no data in this topic
         if len(msg.data) == 0 :
             return
@@ -157,9 +158,9 @@ class RosVideoWriter():
                 if self.opt_verbose :
                     print("Initializing pipe for topic", topic, "at time", t.to_sec())
                 if self.opt_out_file=="":
-                    out_file = self.opt_prefix + str(topic).replace("/", "_")+".mp4"
+                    out_file = timestamp + "_" + self.opt_prefix + str(topic).replace("/", "_")+".mp4"
                 else:
-                    out_file = self.opt_out_file
+                    out_file = timestamp + "_" + self.opt_out_file
 
                 if self.opt_verbose :
                     print("Using output file ", out_file, " for topic ", topic, ".")
