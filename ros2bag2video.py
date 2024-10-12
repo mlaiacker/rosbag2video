@@ -291,7 +291,7 @@ if __name__ == "__main__":
 
     # Construct video from image sequence
     output_video = args.ofile
-    if not create_video_from_images(FRAMES_FOLDER, output_video):
+    if not create_video_from_images(FRAMES_FOLDER, output_video, framerate=args.rate):
         print(f"[ERROR] - Unable to generate video...")
 
     # Keep or remove frames folder content based on --save-images flag.
