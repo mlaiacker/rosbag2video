@@ -142,12 +142,9 @@ def create_video_from_images(image_folder, output_video, framerate=30):
         print("[WARN] - No images found in the specified folder.")
         return
 
-    # Prepare image input pattern
-    # Example: if images are named 001.png, 002.png, etc.
-    image_pattern = os.path.join(image_folder, "%03d.png")  # Adjust padding as needed
-
+    IMAGE_TXT_FILE = 'images.txt'
     # Create a temporary text file listing all images
-    with open('images.txt', 'w') as f:
+    with open(IMAGE_TXT_FILE, 'w') as f:
         for image in images:
             f.write(f"file '{os.path.join(image_folder, image)}'\n")
 
@@ -159,7 +156,7 @@ def create_video_from_images(image_folder, output_video, framerate=30):
         '-r', str(framerate),  # Set frame rate
         '-f', 'concat',
         '-safe', '0',
-        '-i', 'images.txt',  # Input list of images
+        '-i', IMAGE_TXT_FILE,  # Input list of images
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
         output_video,
@@ -170,10 +167,14 @@ def create_video_from_images(image_folder, output_video, framerate=30):
     try:
         subprocess.run(command, check=True)
         print(f"[INFO] - Video created successfully: {output_video}")
+        os.remove(IMAGE_TXT_FILE)
+        return True
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] - Error occurred: {e}")
+        os.remove(IMAGE_TXT_FILE)
+        return False
 
-    # TODO(cardboardcode): Remove images.txt.
+
 
 def get_db3_filepath(folder_path):
     """
@@ -262,9 +263,10 @@ if __name__ == "__main__":
 
     # Construct video from image sequence
     output_video = args.ofile
-    create_video_from_images(FRAMES_FOLDER, output_video)
+    if not create_video_from_images(FRAMES_FOLDER, output_video):
+        print(f"[ERROR] - Unable to generate video...")
 
-    # TODO(cardboardcode): Keep or remove frames folder content based on --save-images flag.
+    # Keep or remove frames folder content based on --save-images flag.
     if not args.save_images:
         clear_folder_if_non_empty(FRAMES_FOLDER)
 
