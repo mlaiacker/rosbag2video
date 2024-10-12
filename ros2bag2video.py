@@ -21,6 +21,7 @@ import sys
 import yaml
 import shutil
 import sqlite3
+import argparse
 import subprocess
 from cv_bridge import CvBridge
 from rosidl_runtime_py.utilities import get_message
@@ -92,24 +93,34 @@ def clear_folder_if_non_empty(folder_path):
                 os.remove(item_path)  # Remove files
             elif os.path.isdir(item_path):
                 shutil.rmtree(item_path)  # Remove directories
-        print(f"[INFO] - Cleared all contents from '{folder_path}'.")
+        print(f"[INFO] - Cleared all contents from '{folder_path}'...")
         return True
     else:
         print(f"[INFO] - The folder '{folder_path}' is already empty.")
         return False
 
 # Function to load the YAML file and extract messages_count
-def get_messages_count_from_yaml(yaml_file):
+def get_messages_count_from_yaml(yaml_file, topic_name):
     try:
         # Open and read the YAML file
         with open(yaml_file, 'r') as file:
             data = yaml.safe_load(file)
             
         # Access the messages_count under rosbag2_bagfile_information
-        message_count = data.get('rosbag2_bagfile_information', {}).get('message_count')
+        path = data.get('rosbag2_bagfile_information', {}).get('files')[0].get('path')
+        topics = data.get('rosbag2_bagfile_information', {}).get('topics_with_message_count')
+
+        message_count = None
+        for topic in topics:
+            if topic['topic_metadata']['name'] == topic_name:
+                message_count = topic['message_count']
+        
+        if message_count is None:
+            print(f"[ERROR] - No matching topic for {topic_name} in {path}. Please ensure you have provided the correct topic name. Exiting...")
+            sys.exit(1)
         
         if message_count is not None:
-            print(f"[INFO] - Messages count: {message_count}")
+            print(f"[INFO] - {path} has {message_count} messages...")
             return message_count
         else:
             print("[ERROR] - messages_count not found in the YAML file.")
@@ -164,21 +175,71 @@ def create_video_from_images(image_folder, output_video, framerate=30):
 
     # TODO(cardboardcode): Remove images.txt.
 
+def get_db3_filepath(folder_path):
+    """
+    Get the filenames of .db3 files in a specified folder.
+
+    Parameters:
+        folder_path (str): The path of the folder to search for .db3 files.
+
+    Returns:
+        list: A list of .db3 filenames in the folder. 
+              Returns an empty list if no .db3 files are found.
+    """
+    # Check if the folder exists
+    if not os.path.exists(folder_path):
+        print(f"The folder '{folder_path}' does not exist.")
+        return []
+
+    # List to store .db3 filenames
+    db3_files = []
+    yaml_files = []
+
+    # Iterate through the files in the folder
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.db3'):
+            db3_files.append(filename)  # Add .db3 file to the list
+
+    # Iterate through the files in the folder
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.yaml'):
+            yaml_files.append(filename)  # Add .db3 file to the list
+
+    assert len(db3_files)==1
+    assert len(yaml_files)==1
+
+    return folder_path + "/" + db3_files[0], folder_path + "/" + yaml_files[0]
+
 if __name__ == "__main__":
 
-    # TODO(cardboardcode): Allow for more configurable parameters via argparse.
+    # Parse commandline input arguments.
+    parser = argparse.ArgumentParser(
+        prog="ros2bag2video",
+        description="Convert ros2 bag file into a mp4 video")
+    parser.add_argument("-v", "--verbose", type=str, required=False,
+                        help="Path to the nav_graph for this fleet adapter")
+    parser.add_argument("--fps", type=int, required=False, default=30,
+                        help="Frames Per Second")
+    parser.add_argument("-r", "--rate", type=int, required=False, default=30,
+                        help="Rate")
+    parser.add_argument("-t", "--topic", type=str, required=True,
+                        help="ROS 2 Topic Name")
+    parser.add_argument("-i", "--ifile", type=str, required=True,
+                        help="Output File")
+    parser.add_argument("-o", "--ofile", type=str, required=False, default=30,
+                        help="Output File")
+    args = parser.parse_args(sys.argv[1:])
 
-    db_path = "rosbag2_2024_10_11-19_45_28/rosbag2_2024_10_11-19_45_28_0.db3"
-    topic_name = "/virtual_camera/image_raw"
+    db_path, yaml_path = get_db3_filepath(args.ifile)
+    topic_name = args.topic
 
     # Get total number of messages from metadata.yaml
-    yaml_path = "rosbag2_2024_10_11-19_45_28/metadata.yaml"
-    message_count = get_messages_count_from_yaml(yaml_path)
+    message_count = get_messages_count_from_yaml(yaml_path, topic_name)
 
-    frames_folder = "frames"
+    FRAMES_FOLDER = "frames"
 
-    check_and_create_folder(frames_folder)
-    clear_folder_if_non_empty(frames_folder)
+    check_and_create_folder(FRAMES_FOLDER)
+    clear_folder_if_non_empty(FRAMES_FOLDER)
 
     # Connect to the database
     conn = sqlite3.connect(db_path)
@@ -191,7 +252,7 @@ if __name__ == "__main__":
     for i in range(message_count):
         save_image_from_rosbag(cursor, topic_name, message_index)
         message_index = message_index + 1
-        print(f"[INFO] - Processing messages: [{i+1}/{message_count}]", end='\r')
+        print(f"[INFO] - Processing messages: [{i+1}/{message_count}]...", end='\r')
         sys.stdout.flush()
     
     # Close the database connection
@@ -199,7 +260,7 @@ if __name__ == "__main__":
 
     # Construct video from image sequence
     output_video = "output_video.mp4"
-    create_video_from_images(frames_folder, output_video)
+    create_video_from_images(FRAMES_FOLDER, output_video)
 
     # TODO(cardboardcode): Keep or remove frames folder content based on --save-images flag.
 
