@@ -228,6 +228,8 @@ if __name__ == "__main__":
                         help="Output File")
     parser.add_argument("-o", "--ofile", type=str, required=False, default="output_video.mp4",
                         help="Output File")
+    parser.add_argument("--save_images", action="store_true", required=False, default=False,
+                        help="Boolean flag for saving extracted .png frames in frames/")
     args = parser.parse_args(sys.argv[1:])
 
     db_path, yaml_path = get_db3_filepath(args.ifile)
@@ -259,8 +261,10 @@ if __name__ == "__main__":
     conn.close()
 
     # Construct video from image sequence
-    output_video = args.ifile
+    output_video = args.ofile
     create_video_from_images(FRAMES_FOLDER, output_video)
 
     # TODO(cardboardcode): Keep or remove frames folder content based on --save-images flag.
+    if not args.save_images:
+        clear_folder_if_non_empty(FRAMES_FOLDER)
 
