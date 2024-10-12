@@ -27,6 +27,7 @@ from cv_bridge import CvBridge
 from rosidl_runtime_py.utilities import get_message
 from rclpy.serialization import deserialize_message
 
+
 def save_image_from_rosbag(cvbridge, cursor, topic_name, message_index=0):
     # Query for the messages in the specified ROS 2 topic
     query = """
@@ -225,7 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--topic", type=str, required=True,
                         help="ROS 2 Topic Name")
     parser.add_argument("-i", "--ifile", type=str, required=True,
-                        help="Output File")
+                        help="Input File")
     parser.add_argument("-o", "--ofile", type=str, required=False, default="output_video.mp4",
                         help="Output File")
     parser.add_argument("--save_images", action="store_true", required=False, default=False,
