@@ -1,10 +1,7 @@
 FROM ros:humble-perception
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    python3-pip \
-    ros-humble-cv-bridge && \
-    pip3 install opencv-python && \ 
+    ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Setting up working directory 
