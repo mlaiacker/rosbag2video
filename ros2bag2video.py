@@ -64,7 +64,8 @@ def check_and_create_folder(folder_path):
     if not os.path.exists(folder_path):
         try:
             os.makedirs(folder_path)
-            print(f"[INFO] - Folder '{folder_path}' created successfully.")
+            if IS_VERBOSE:
+                print(f"[INFO] - Folder '{folder_path}' created successfully.")
         except OSError as e:
             print(f"[ERROR] - Failed to create folder '{folder_path}'. {e}")
 
@@ -80,7 +81,8 @@ def clear_folder_if_non_empty(folder_path):
     """
     # Check if the folder exists
     if not os.path.exists(folder_path):
-        print(f"[WARN] - The folder '{folder_path}' does not exist.")
+        if IS_VERBOSE:
+            print(f"[WARN] - The folder '{folder_path}' does not exist.")
         return False
     
     # List all files and directories in the folder
@@ -94,10 +96,12 @@ def clear_folder_if_non_empty(folder_path):
                 os.remove(item_path)  # Remove files
             elif os.path.isdir(item_path):
                 shutil.rmtree(item_path)  # Remove directories
-        print(f"[INFO] - Cleared all contents from '{folder_path}'...")
+        if IS_VERBOSE:
+            print(f"[INFO] - Cleared all contents from '{folder_path}'...")
         return True
     else:
-        print(f"[INFO] - The folder '{folder_path}' is already empty.")
+        if IS_VERBOSE:
+            print(f"[INFO] - The folder '{folder_path}' is already empty.")
         return False
 
 # Function to load the YAML file and extract messages_count
@@ -121,16 +125,17 @@ def get_messages_count_from_yaml(yaml_file, topic_name):
             sys.exit(1)
         
         if message_count is not None:
-            print(f"[INFO] - {path} has {message_count} messages...")
+            if IS_VERBOSE:
+                print(f"[INFO] - {path} has {message_count} messages...")
             return message_count
         else:
             print("[ERROR] - messages_count not found in the YAML file.")
             sys.exit()
             
     except FileNotFoundError:
-        print(f"Error: The file {yaml_file} does not exist.")
+        print(f"[ERROR] - The file {yaml_file} does not exist.")
     except yaml.YAMLError as e:
-        print(f"Error: Failed to parse YAML file. {e}")
+        print(f"[ERROR] - Failed to parse YAML file. {e}")
 
 def create_video_from_images(image_folder, output_video, framerate=30):
     # Get a sorted list of image files in the folder
@@ -151,23 +156,38 @@ def create_video_from_images(image_folder, output_video, framerate=30):
 
     # TODO(cardboardcode): Remove hardcoded pix_fmt.
 
+    command = []
     # Build the ffmpeg command
-    command = [
-        'ffmpeg',
-        '-r', str(framerate),  # Set frame rate
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', IMAGE_TXT_FILE,  # Input list of images
-        '-c:v', 'libx264',
-        '-pix_fmt', 'yuv420p',
-        output_video,
-        "-y"
-    ]
+    if IS_VERBOSE:
+        command = [
+            'ffmpeg',
+            '-r', str(framerate),  # Set frame rate
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', IMAGE_TXT_FILE,  # Input list of images
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            output_video,
+            "-y"
+        ]
+    else:
+        command = [
+            'ffmpeg',
+            '-r', str(framerate),  # Set frame rate
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', IMAGE_TXT_FILE,  # Input list of images
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-loglevel', 'error', '-stats',
+            output_video,
+            "-y"
+        ]
 
     # Run the ffmpeg command
     try:
         subprocess.run(command, check=True)
-        print(f"[INFO] - Video created successfully: {output_video}")
+        print(f"[INFO] - Writing video to: {output_video}")
         os.remove(IMAGE_TXT_FILE)
         return True
     except subprocess.CalledProcessError as e:
@@ -219,8 +239,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="ros2bag2video",
         description="Convert ros2 bag file into a mp4 video")
-    parser.add_argument("-v", "--verbose", type=str, required=False,
-                        help="Path to the nav_graph for this fleet adapter")
+    parser.add_argument("-v", "--verbose", action="store_true", required=False, default=False,
+                        help="Run ros2bag2video script in verbose mode.")
     parser.add_argument("-r", "--rate", type=int, required=False, default=30,
                         help="Rate")
     parser.add_argument("-t", "--topic", type=str, required=True,
@@ -235,6 +255,9 @@ if __name__ == "__main__":
 
     db_path, yaml_path = get_db3_filepath(args.ifile)
     topic_name = args.topic
+
+    global IS_VERBOSE
+    IS_VERBOSE = args.verbose
 
     # Check if input fps is valid.
     if args.rate <= 0:
