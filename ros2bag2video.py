@@ -226,7 +226,7 @@ if __name__ == "__main__":
                         help="ROS 2 Topic Name")
     parser.add_argument("-i", "--ifile", type=str, required=True,
                         help="Output File")
-    parser.add_argument("-o", "--ofile", type=str, required=False, default=30,
+    parser.add_argument("-o", "--ofile", type=str, required=False, default="output_video.mp4",
                         help="Output File")
     args = parser.parse_args(sys.argv[1:])
 
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     conn.close()
 
     # Construct video from image sequence
-    output_video = "output_video.mp4"
+    output_video = args.ifile
     create_video_from_images(FRAMES_FOLDER, output_video)
 
     # TODO(cardboardcode): Keep or remove frames folder content based on --save-images flag.
