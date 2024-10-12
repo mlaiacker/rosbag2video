@@ -28,7 +28,7 @@ from rosidl_runtime_py.utilities import get_message
 from rclpy.serialization import deserialize_message
 
 def save_image_from_rosbag(cursor, topic_name, message_index=0):
-    # Query for the messages in the specified topic
+    # Query for the messages in the specified ROS 2 topic
     query = """
     SELECT data
     FROM messages
@@ -53,7 +53,7 @@ def save_image_from_rosbag(cursor, topic_name, message_index=0):
         print(f"[ERROR] - Error converting image: {e}")
         return
 
-    # Save the image using Pillow
+    # Save the image using OpenCV
     padded_number = f"{message_index:03d}"
     output_filename = "frames/" + padded_number + '.png'
     cv2.imwrite(output_filename, cv_image)
@@ -175,7 +175,6 @@ def create_video_from_images(image_folder, output_video, framerate=30):
         return False
 
 
-
 def get_db3_filepath(folder_path):
     """
     Get the filenames of .db3 files in a specified folder.
@@ -213,14 +212,14 @@ def get_db3_filepath(folder_path):
 
 if __name__ == "__main__":
 
+    # TODO(cardboardcode): Implement verbose and non-verbose mode.
+
     # Parse commandline input arguments.
     parser = argparse.ArgumentParser(
         prog="ros2bag2video",
         description="Convert ros2 bag file into a mp4 video")
     parser.add_argument("-v", "--verbose", type=str, required=False,
                         help="Path to the nav_graph for this fleet adapter")
-    parser.add_argument("--fps", type=int, required=False, default=30,
-                        help="Frames Per Second")
     parser.add_argument("-r", "--rate", type=int, required=False, default=30,
                         help="Rate")
     parser.add_argument("-t", "--topic", type=str, required=True,
@@ -235,6 +234,11 @@ if __name__ == "__main__":
 
     db_path, yaml_path = get_db3_filepath(args.ifile)
     topic_name = args.topic
+
+    # Check if input fps is valid.
+    if args.rate <= 0:
+       print(f"Invalid rate: {args.rate}. Setting to default 30...")
+       args.rate = 30
 
     # Get total number of messages from metadata.yaml
     message_count = get_messages_count_from_yaml(yaml_path, topic_name)
