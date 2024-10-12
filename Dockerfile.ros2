@@ -1,0 +1,18 @@
+FROM ros:humble-perception
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    python3-pip \
+    ros-humble-cv-bridge && \
+    pip3 install opencv-python && \ 
+    rm -rf /var/lib/apt/lists/*
+
+# Setting up working directory 
+WORKDIR /ros2bagvideo_workspace
+
+# Add user
+RUN adduser --quiet --disabled-password user
+RUN chown -R user:user /ros2bagvideo_workspace
+USER user
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
