@@ -5,11 +5,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Setting up working directory 
-WORKDIR /ros2bagvideo_workspace
+WORKDIR /ros2bag2video_workspace
 
 # Add user
 RUN adduser --quiet --disabled-password user
-RUN chown -R user:user /ros2bagvideo_workspace
+RUN chown -R user:user /ros2bag2video_workspace
 USER user
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
