@@ -81,8 +81,6 @@ def save_image_from_rosbag(cvbridge, cursor, topic_name, input_msg_type, message
         print(f"[ERROR] - No message found at index {message_index} for topic {topic_name}")
         return
 
-    # TODO(cardboardcode): Implement feature to determine if messages are compressed or not.
-
     # Deserialize the sensor_msgs/msg/Image message
     msg_type = get_message(input_msg_type)
     msg = deserialize_message(message_data[0], msg_type)
