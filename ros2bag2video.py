@@ -66,7 +66,7 @@ def get_pix_fmt(msg_encoding):
             print("[INFO] - pix_fmt:", pix_fmt)
         return pix_fmt
 
-def save_image_from_rosbag(cvbridge, cursor, topic_name, message_index=0):
+def save_image_from_rosbag(cvbridge, cursor, topic_name, input_msg_type, message_index=0):
     # Query for the messages in the specified ROS 2 topic
     query = """
     SELECT data
@@ -84,7 +84,7 @@ def save_image_from_rosbag(cvbridge, cursor, topic_name, message_index=0):
     # TODO(cardboardcode): Implement feature to determine if messages are compressed or not.
 
     # Deserialize the sensor_msgs/msg/Image message
-    msg_type = get_message('sensor_msgs/msg/Image')
+    msg_type = get_message(input_msg_type)
     msg = deserialize_message(message_data[0], msg_type)
 
     global MSG_ENCODING
@@ -147,8 +147,12 @@ def clear_folder_if_non_empty(folder_path):
             print(f"[INFO] - The folder '{folder_path}' is already empty.")
         return False
 
-# Function to load the YAML file and extract messages_count
-def get_messages_count_from_yaml(yaml_file, topic_name):
+# Function to load the YAML file and extract messages_count and msg_type
+def get_info_from_yaml(yaml_file, topic_name):
+
+    message_count = None
+    msg_type = None
+
     try:
         # Open and read the YAML file
         with open(yaml_file, 'r') as file:
@@ -158,19 +162,20 @@ def get_messages_count_from_yaml(yaml_file, topic_name):
         path = data.get('rosbag2_bagfile_information', {}).get('files')[0].get('path')
         topics = data.get('rosbag2_bagfile_information', {}).get('topics_with_message_count')
 
-        message_count = None
         for topic in topics:
             if topic['topic_metadata']['name'] == topic_name:
                 message_count = topic['message_count']
+                print(f"topic = {topic}")
+                msg_type = topic['topic_metadata']['type']
         
         if message_count is None:
             print(f"[ERROR] - No matching topic for {topic_name} in {path}. Please ensure you have provided the correct topic name. Exiting...")
             sys.exit(1)
         
-        if message_count is not None:
+        if message_count is not None and msg_type is not None:
             if IS_VERBOSE:
-                print(f"[INFO] - {path} has {message_count} messages...")
-            return message_count
+                print(f"[INFO] - {path} has {message_count} {msg_type} messages...")
+            return message_count, msg_type
         else:
             print("[ERROR] - messages_count not found in the YAML file.")
             sys.exit()
@@ -306,7 +311,7 @@ if __name__ == "__main__":
        args.rate = 30
 
     # Get total number of messages from metadata.yaml
-    message_count = get_messages_count_from_yaml(yaml_path, topic_name)
+    message_count, msg_type = get_info_from_yaml(yaml_path, topic_name)
 
     FRAMES_FOLDER = "frames"
 
@@ -322,7 +327,7 @@ if __name__ == "__main__":
 
     message_index = 0
     for i in range(message_count):
-        save_image_from_rosbag(bridge, cursor, topic_name, message_index)
+        save_image_from_rosbag(bridge, cursor, topic_name, msg_type, message_index)
         message_index = message_index + 1
         print(f"[INFO] - Processing messages: [{i+1}/{message_count}]...", end='\r')
         sys.stdout.flush()
