@@ -92,7 +92,10 @@ def save_image_from_rosbag(cvbridge, cursor, topic_name, input_msg_type, message
 
     # Use CvBridge to convert the ROS Image message to an OpenCV image
     try:
-        cv_image = cvbridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+        if input_msg_type == "sensor_msgs/msg/CompressedImage":
+            cv_image = cvbridge.compressed_imgmsg_to_cv2(msg, desired_encoding="passthrough")
+        else:
+            cv_image = cvbridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
     except Exception as e:
         print(f"[ERROR] - Error converting image: {e}")
         return
