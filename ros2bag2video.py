@@ -277,8 +277,6 @@ def get_db3_filepath(folder_path):
 
 if __name__ == "__main__":
 
-    # TODO(cardboardcode): Implement verbose and non-verbose mode.
-
     # Parse commandline input arguments.
     parser = argparse.ArgumentParser(
         prog="ros2bag2video",
