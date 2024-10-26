@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""
+Module to generate video output given ROS 2 bag folders via direct
+sqlite3 extraction from .db3 files and metadata.yaml
+"""
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2024 Bey Hao Yun.
@@ -16,13 +20,13 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import cv2
 import sys
-import yaml
-import shutil
+import subprocess
 import sqlite3
 import argparse
-import subprocess
+import shutil
+import cv2
+import yaml
 from cv_bridge import CvBridge
 from rosidl_runtime_py.utilities import get_message
 from rclpy.serialization import deserialize_message
@@ -31,42 +35,86 @@ IS_VERBOSE = False
 MSG_ENCODING = ''
 
 def get_pix_fmt(msg_encoding):
-        pix_fmt = "yuv420p"
+    """
+    Determine pixel format based on message encoding.
 
-        if IS_VERBOSE:
-            print("[INFO] - AJB: Encoding:", msg_encoding)
+    Args:
+        msg_encoding (str): The encoding of the message.
 
-        try:
-            if msg_encoding.find("mono8") != -1:
-                pix_fmt = "gray"
-            elif msg_encoding.find("8UC1") != -1:
-                pix_fmt = "gray"
-            elif msg_encoding.find("bgra") != -1:
-                pix_fmt = "bgra"
-            elif msg_encoding.find("bgr8") != -1:
-                pix_fmt = "bgr24"
-            elif msg_encoding.find("bggr8") != -1:
-                pix_fmt = "bayer_bggr8"
-            elif msg_encoding.find("rggb8") != -1:
-                pix_fmt = "bayer_rggb8"
-            elif msg_encoding.find("rgb8") != -1:
-                pix_fmt = "rgb24"
-            elif msg_encoding.find("16UC1") != -1:
-                pix_fmt = "gray16le"
-            else:
-                print(f"[WARN] - Unsupported encoding: {msg_encoding}. Defaulting pix_fmt to {pix_fmt}...")
-        except AttributeError:
-            # Maybe this is a theora packet which is unsupported.
-            print(
-                "[ERROR] - Could not handle this format."
-                + " Maybe thoera packet? theora is not supported."
-            )
-            sys.exit(1)
-        if IS_VERBOSE:
-            print("[INFO] - pix_fmt:", pix_fmt)
-        return pix_fmt
+    Returns:
+        str: The determined pixel format.
 
-def save_image_from_rosbag(cvbridge, cursor, topic_name, input_msg_type, message_index=0):
+    Notes:
+        This function attempts to infer the correct pixel format from a given 
+        message encoding. It supports various formats, including gray, bgra, 
+        and RGB variants. If an unsupported encoding is provided, it defaults 
+        to yuv420p or prints warnings accordingly.
+
+    Raises:
+        AttributeError: If msg_encoding cannot be handled.
+    """
+    pix_fmt = "yuv420p"
+
+    if IS_VERBOSE:
+        print("[INFO] - AJB: Encoding:", msg_encoding)
+
+    try:
+        if msg_encoding.find("mono8") != -1:
+            pix_fmt = "gray"
+        elif msg_encoding.find("8UC1") != -1:
+            pix_fmt = "gray"
+        elif msg_encoding.find("bgra") != -1:
+            pix_fmt = "bgra"
+        elif msg_encoding.find("bgr8") != -1:
+            pix_fmt = "bgr24"
+        elif msg_encoding.find("bggr8") != -1:
+            pix_fmt = "bayer_bggr8"
+        elif msg_encoding.find("rggb8") != -1:
+            pix_fmt = "bayer_rggb8"
+        elif msg_encoding.find("rgb8") != -1:
+            pix_fmt = "rgb24"
+        elif msg_encoding.find("16UC1") != -1:
+            pix_fmt = "gray16le"
+        else:
+            print(f"[WARN] - Unsupported encoding: {msg_encoding}. "
+                  "Defaulting pix_fmt to {pix_fmt}...")
+    except AttributeError:
+        # Maybe this is a theora packet which is unsupported.
+        print(
+            "[ERROR] - Could not handle this format."
+            + " Maybe thoera packet? theora is not supported."
+        )
+        sys.exit(1)
+    if IS_VERBOSE:
+        print("[INFO] - pix_fmt:", pix_fmt)
+    return pix_fmt
+
+def save_image_from_rosbag(
+        cvbridge,
+        cursor,
+        topic_name,
+        input_msg_type,
+        message_index=0):
+    """
+    Save an image from a ROS bag.
+
+    Args:
+        cvbridge: CvBridge instance for converting between OpenCV and ROS images.
+        cursor: Database cursor to query the ROS 2 database.
+        topic_name (str): The name of the ROS 2 topic containing the image messages.
+        input_msg_type (str): The type of message in the topic, e.g. "sensor_msgs/msg/Image".
+        message_index (int, optional): The index of the message to save. Defaults to 0.
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If an error occurs during image conversion or saving.
+
+    Notes:
+        This function queries a ROS 2 database for messages in a specified topic,
+        deserializes them into OpenCV images, and saves them as PNG files.
+    """
     # Query for the messages in the specified ROS 2 topic
     query = """
     SELECT data
@@ -103,8 +151,24 @@ def save_image_from_rosbag(cvbridge, cursor, topic_name, input_msg_type, message
     output_filename = "frames/" + padded_number + '.png'
     cv2.imwrite(output_filename, cv_image)
 
-# Function to check if folder exists, and create it if it doesn't
 def check_and_create_folder(folder_path):
+    """
+    Check if a directory exists and create it if not.
+
+    Args:
+        folder_path (str): The path of the directory to be checked or created.
+
+    Returns:
+        None
+
+    Notes:
+        This function attempts to ensure that the specified directory is present.
+        If it does not exist, an attempt is made to create it. Any errors during
+        creation are logged and reported.
+
+    Raises:
+        OSError: If there's a problem creating the folder.
+    """
     if not os.path.exists(folder_path):
         try:
             os.makedirs(folder_path)
@@ -128,7 +192,7 @@ def clear_folder_if_non_empty(folder_path):
         if IS_VERBOSE:
             print(f"[WARN] - The folder '{folder_path}' does not exist.")
         return False
-    
+
     # List all files and directories in the folder
     contents = os.listdir(folder_path)
 
@@ -143,51 +207,82 @@ def clear_folder_if_non_empty(folder_path):
         if IS_VERBOSE:
             print(f"[INFO] - Cleared all contents from '{folder_path}'...")
         return True
-    else:
-        if IS_VERBOSE:
-            print(f"[INFO] - The folder '{folder_path}' is already empty.")
-        return False
+    if IS_VERBOSE:
+        print(f"[INFO] - The folder '{folder_path}' is already empty.")
+    return False
 
-# Function to load the YAML file and extract messages_count and msg_type
 def get_info_from_yaml(yaml_file, topic_name):
+    """
+    Extract message count and type from a ROS 2 bag's YAML metadata.
+
+    Args:
+        yaml_file (str): The path of the YAML file containing the bag information.
+        topic_name (str): The name of the topic for which to retrieve info.
+
+    Returns:
+        tuple: A pair containing the number of messages in the specified topic
+            and its message type. If either value is None, it means an error occurred.
+
+    Raises:
+        FileNotFoundError: If the YAML file does not exist.
+        yaml.YAMLError: If there's a problem parsing the YAML data.
+
+    Notes:
+        This function attempts to extract relevant information from a ROS 2 bag's
+        metadata. It looks for specific keys in the provided YAML file and returns
+        the requested values if found, or logs an error otherwise.
+    """
 
     message_count = None
     msg_type = None
 
     try:
         # Open and read the YAML file
-        with open(yaml_file, 'r') as file:
+        with open(yaml_file, 'r', encoding='utf-8') as file:
             data = yaml.safe_load(file)
-            
+
         # Access the messages_count under rosbag2_bagfile_information
-        path = data.get('rosbag2_bagfile_information', {}).get('files')[0].get('path')
-        topics = data.get('rosbag2_bagfile_information', {}).get('topics_with_message_count')
+        path = data.get(
+            'rosbag2_bagfile_information', {}).get('files')[0].get('path')
+        topics = data.get(
+            'rosbag2_bagfile_information', {}).get('topics_with_message_count')
 
         for topic in topics:
             if topic['topic_metadata']['name'] == topic_name:
                 message_count = topic['message_count']
                 print(f"topic = {topic}")
                 msg_type = topic['topic_metadata']['type']
-        
+
         if message_count is None:
-            print(f"[ERROR] - No matching topic for {topic_name} in {path}. Please ensure you have provided the correct topic name. Exiting...")
+            print(f"[ERROR] - No matching topic for {topic_name} in {path}. "
+                  "Please ensure you have provided the correct topic name. Exiting...")
             sys.exit(1)
-        
+
         if message_count is not None and msg_type is not None:
             if IS_VERBOSE:
                 print(f"[INFO] - {path} has {message_count} {msg_type} messages...")
             return message_count, msg_type
-        else:
-            print("[ERROR] - messages_count not found in the YAML file.")
-            sys.exit()
-            
+
+        print("[ERROR] - messages_count not found in the YAML file.")
+        sys.exit()
+
     except FileNotFoundError:
         print(f"[ERROR] - The file {yaml_file} does not exist.")
     except yaml.YAMLError as e:
         print(f"[ERROR] - Failed to parse YAML file. {e}")
 
 def create_video_from_images(image_folder, output_video, framerate=30):
-    # Get a sorted list of image files in the folder
+    """
+    Creates a video from a list of images in the specified folder.
+
+    Args:
+        image_folder (str): The path to the folder containing the images.
+        output_video (str): The desired file name for the generated video.
+        framerate (int, optional): The frame rate of the resulting video. Defaults to 30.
+
+    Returns:
+        bool: True if the operation was successful, False otherwise.
+    """
     images = sorted(
         [img for img in os.listdir(image_folder) if img.endswith(('.png', '.jpg', '.jpeg'))],
         key=lambda x: int(os.path.splitext(x)[0])  # Sort by the numeric part of the filename
@@ -199,7 +294,7 @@ def create_video_from_images(image_folder, output_video, framerate=30):
 
     IMAGE_TXT_FILE = 'images.txt'
     # Create a temporary text file listing all images
-    with open(IMAGE_TXT_FILE, 'w') as f:
+    with open(IMAGE_TXT_FILE, 'w', encoding='utf-8') as f:
         for image in images:
             f.write(f"file '{os.path.join(image_folder, image)}'\n")
 
@@ -308,8 +403,8 @@ if __name__ == "__main__":
 
     # Check if input fps is valid.
     if args.rate <= 0:
-       print(f"Invalid rate: {args.rate}. Setting to default 30...")
-       args.rate = 30
+        print(f"Invalid rate: {args.rate}. Setting to default 30...")
+        args.rate = 30
 
     # Get total number of messages from metadata.yaml
     message_count, msg_type = get_info_from_yaml(yaml_path, topic_name)
@@ -332,16 +427,15 @@ if __name__ == "__main__":
         message_index = message_index + 1
         print(f"[INFO] - Processing messages: [{i+1}/{message_count}]...", end='\r')
         sys.stdout.flush()
-    
+
     # Close the database connection
     conn.close()
 
     # Construct video from image sequence
     output_video = args.ofile
     if not create_video_from_images(FRAMES_FOLDER, output_video, framerate=args.rate):
-        print(f"[ERROR] - Unable to generate video...")
+        print("[ERROR] - Unable to generate video...")
 
     # Keep or remove frames folder content based on --save-images flag.
     if not args.save_images:
         clear_folder_if_non_empty(FRAMES_FOLDER)
-
