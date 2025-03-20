@@ -30,6 +30,7 @@ import yaml
 from cv_bridge import CvBridge
 from rosidl_runtime_py.utilities import get_message
 from rclpy.serialization import deserialize_message
+from rclpy.time import Time
 
 IS_VERBOSE = False
 MSG_ENCODING = ''
@@ -132,9 +133,18 @@ def save_image_from_rosbag(
     # Deserialize the sensor_msgs/msg/Image message
     msg_type = get_message(input_msg_type)
     msg = deserialize_message(message_data[0], msg_type)
+    image_file_type = ".png"
 
-    global MSG_ENCODING
-    MSG_ENCODING = msg.encoding
+    if msg.format == "jpeg":
+        image_file_type = '.jpg'
+
+    try:
+        global MSG_ENCODING
+        # AttributeError: 'CompressedImage' object has no attribute 'encoding'
+        # format='jpeg'
+        MSG_ENCODING = msg.encoding
+    except AttributeError:
+        pass
 
     # Use CvBridge to convert the ROS Image message to an OpenCV image
     try:
@@ -147,8 +157,8 @@ def save_image_from_rosbag(
         return
 
     # Save the image using OpenCV
-    padded_number = f"{message_index:03d}"
-    output_filename = "frames/" + padded_number + '.png'
+    padded_number = f"{message_index:07d}"
+    output_filename = "frames/" + padded_number + image_file_type
     cv2.imwrite(output_filename, cv_image)
 
 def check_and_create_folder(folder_path):
@@ -340,6 +350,78 @@ def create_video_from_images(image_folder, output_video, framerate=30):
         os.remove(IMAGE_TXT_FILE)
         return False
 
+def create_video_from_jpg(cursor, output_video:str, topic_name:str, fps:float, input_msg_type,message_count, max_frames:int = -1):
+    """
+    Save an video from a ROS bag with jpg compressed images.
+
+    Args:
+
+    Returns:
+        None
+
+    Raises:
+
+
+    Notes:
+
+    """
+    
+    cmd = [
+                        'ffmpeg',
+                        '-v',
+                        '10',
+                        '-stats',
+                        '-r',str(fps),
+                        '-c',
+                        'mjpeg',
+                        '-f',
+                        'mjpeg',
+                        '-i',
+                        '-',
+                        '-an',
+                        output_video]
+
+    # Query for the messages in the specified ROS 2 topic
+    query = """
+    SELECT data
+    FROM messages
+    WHERE topic_id = (SELECT id FROM topics WHERE name = ?);
+    """
+    cursor.execute(query, (topic_name,))
+    message_data = cursor.fetchone()
+
+    if IS_VERBOSE:
+        print(cmd)
+    ffmpeg_pipe = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+
+    msg_type = get_message(input_msg_type)
+    i = 0
+    t_video = 0.0
+    t_0 = 0.0
+    t_bag = 0.0
+    while message_data:
+        i=i+1
+        # Deserialize the sensor_msgs/msg/Image message
+        msg = deserialize_message(message_data[0], msg_type)
+        if t_0 == 0:
+            if IS_VERBOSE:
+                print(msg)
+            # get timestamp of first frame
+            t_0 = msg.header.stamp
+        t_bag = (Time.from_msg(msg.header.stamp).nanoseconds - Time.from_msg(t_0).nanoseconds)*1e-9
+        ffmpeg_pipe.stdin.write(msg.data)
+        if IS_VERBOSE:
+            print(f"[INFO] - Processing messages: [{i+1}/{message_count}]... bag time:{t_bag:.2f}s, video time:{t_video:.2f}s", end='\r')        
+        t_video += 1.0/fps
+        message_data = cursor.fetchone()
+        if max_frames>0  and i>=max_frames:
+            break
+    if IS_VERBOSE:
+        print("finished")
+    ffmpeg_pipe.stdin.close()
+
+
+
 
 def get_db3_filepath(folder_path):
     """
@@ -394,6 +476,8 @@ if __name__ == "__main__":
                         help="Output File")
     parser.add_argument("--save_images", action="store_true", required=False, default=False,
                         help="Boolean flag for saving extracted .png frames in frames/")
+    parser.add_argument("--frames", type=int, required=False, default=-1,
+                        help="number of frames to export")
     args = parser.parse_args(sys.argv[1:])
 
     db_path, yaml_path = get_db3_filepath(args.ifile)
@@ -409,19 +493,27 @@ if __name__ == "__main__":
     # Get total number of messages from metadata.yaml
     message_count, msg_type = get_info_from_yaml(yaml_path, topic_name)
 
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    if msg_type == "sensor_msgs/msg/CompressedImage":
+        create_video_from_jpg(cursor, args.ofile, topic_name, args.rate, msg_type, message_count, args.frames)
+        conn.close()
+        exit(0)
+    
+
     FRAMES_FOLDER = "frames"
 
     check_and_create_folder(FRAMES_FOLDER)
     clear_folder_if_non_empty(FRAMES_FOLDER)
 
     # Connect to the database
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
 
     # Initialize the CvBridge
     bridge = CvBridge()
 
     message_index = 0
+    # for testing
     for i in range(message_count):
         save_image_from_rosbag(bridge, cursor, topic_name, msg_type, message_index)
         message_index = message_index + 1
