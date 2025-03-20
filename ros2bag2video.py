@@ -90,6 +90,30 @@ def get_pix_fmt(msg_encoding):
         print("[INFO] - pix_fmt:", pix_fmt)
     return pix_fmt
 
+def get_msg_format_from_rosbag(
+        cursor,
+        topic_name:str,
+        input_msg_type) -> str:
+    # Query for the messages in the specified ROS 2 topic
+    query = """
+    SELECT data
+    FROM messages
+    WHERE topic_id = (SELECT id FROM topics WHERE name = ?)
+    LIMIT 1;
+    """
+    cursor.execute(query, (topic_name, ))
+    message_data = cursor.fetchone()
+
+    if not message_data:
+        print(f"[ERROR] - No message found at index {message_index} for topic {topic_name}")
+        return ""
+
+    # Deserialize the sensor_msgs/msg/Image message
+    msg_type = get_message(input_msg_type)
+    msg = deserialize_message(message_data[0], msg_type)
+    return msg.format
+    
+
 def save_image_from_rosbag(
         cvbridge,
         cursor,
@@ -350,11 +374,15 @@ def create_video_from_images(image_folder, output_video, framerate=30):
         os.remove(IMAGE_TXT_FILE)
         return False
 
-def create_video_from_jpg(cursor, output_video:str, topic_name:str, fps:float, input_msg_type,message_count, max_frames:int = -1):
+def create_video_from_jpg(cursor, output_video:str, topic_name:str, fps:float, input_msg_type, max_frames:int = -1):
     """
-    Save an video from a ROS bag with jpg compressed images.
+    Save an video from a ROS bag with jpg compressed images into a mjpeg video file.
 
     Args:
+        cursor: Database cursor to query the ROS 2 database.
+        topic_name (str): The name of the ROS 2 topic containing the image messages.
+        input_msg_type (str): The type of message in the topic, e.g. "sensor_msgs/msg/Image".
+        max_frames (int, optional): stops export after this number of frames
 
     Returns:
         None
@@ -409,9 +437,11 @@ def create_video_from_jpg(cursor, output_video:str, topic_name:str, fps:float, i
             # get timestamp of first frame
             t_0 = msg.header.stamp
         t_bag = (Time.from_msg(msg.header.stamp).nanoseconds - Time.from_msg(t_0).nanoseconds)*1e-9
+        #write jpeg data to ffmpeg
         ffmpeg_pipe.stdin.write(msg.data)
+        # TODO: handle difference in bag recording fps and requested video fps
         if IS_VERBOSE:
-            print(f"[INFO] - Processing messages: [{i+1}/{message_count}]... bag time:{t_bag:.2f}s, video time:{t_video:.2f}s", end='\r')        
+            print(f"[INFO] - Processing message: [{i+1}] bag time:{t_bag:.2f}s, video time:{t_video:.2f}s", end='\r')        
         t_video += 1.0/fps
         message_data = cursor.fetchone()
         if max_frames>0  and i>=max_frames:
@@ -463,7 +493,7 @@ if __name__ == "__main__":
     # Parse commandline input arguments.
     parser = argparse.ArgumentParser(
         prog="ros2bag2video",
-        description="Convert ros2 bag file into a mp4 video")
+        description="Convert ros2 bag file into a video file using ffmpeg")
     parser.add_argument("-v", "--verbose", action="store_true", required=False, default=False,
                         help="Run ros2bag2video script in verbose mode.")
     parser.add_argument("-r", "--rate", type=int, required=False, default=30,
@@ -477,7 +507,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_images", action="store_true", required=False, default=False,
                         help="Boolean flag for saving extracted .png frames in frames/")
     parser.add_argument("--frames", type=int, required=False, default=-1,
-                        help="number of frames to export")
+                        help="limit the number of frames to export")
     args = parser.parse_args(sys.argv[1:])
 
     db_path, yaml_path = get_db3_filepath(args.ifile)
@@ -496,11 +526,13 @@ if __name__ == "__main__":
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    if msg_type == "sensor_msgs/msg/CompressedImage":
-        create_video_from_jpg(cursor, args.ofile, topic_name, args.rate, msg_type, message_count, args.frames)
-        conn.close()
-        exit(0)
-    
+    if msg_type == "sensor_msgs/msg/CompressedImage" and not args.save_images:
+        if get_msg_format_from_rosbag(cursor,topic_name, msg_type)=="jpeg":
+            # we can directly feed the jpg data to ffmpeg to create the video
+            create_video_from_jpg(cursor, args.ofile, topic_name, args.rate, msg_type, args.frames)
+            conn.close()
+            exit(0)
+    # else do the image export stuff
 
     FRAMES_FOLDER = "frames"
 
