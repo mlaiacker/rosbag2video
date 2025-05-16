@@ -1,374 +1,406 @@
 #!/usr/bin/env python3
-
 """
-rosbag2video.py
-rosbag to video file conversion tool
-by Abel Gabor 2019
-baquatelle@gmail.com
-requirements:
-sudo apt install python3-roslib python3-sensor-msgs python3-opencv ffmpeg
-based on the tool by Maximilian Laiacker 2016
-post@mlaiacker.de"""
+Module to generate video output given ROS 2 bag folders via direct
+sqlite3 extraction from .db3 files and metadata.yaml
+"""
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2024 Bey Hao Yun.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
-import getopt
-import datetime
 import subprocess
-import numpy as np
-import rospy
-import rosbag
-from sensor_msgs.msg import CompressedImage
-from sensor_msgs.msg import Image
+import argparse
+import shutil
+from pathlib import Path
+from typing import Tuple
+
 import cv2
-
-MJPEG_VIDEO = 1
-RAWIMAGE_VIDEO = 2
-VIDEO_CONVERTER_TO_USE = "ffmpeg" # or you may want to use "avconv"
-
-
-def print_help():
-    print('rosbag2video.py [--fps 25] [--rate 1] [-o outputfile]'
-          ' [-v] [-s] [-t topic] bagfile1 [bagfile2] ...')
-    print()
-    print('Converts image sequence(s) in ros bag file(s) to video'
-          ' file(s) with fixed frame rate using',VIDEO_CONVERTER_TO_USE)
-    print(VIDEO_CONVERTER_TO_USE,'needs to be installed!')
-    print()
-    print('--fps   Sets FPS value that is passed to',VIDEO_CONVERTER_TO_USE)
-    print('        Default is 25.')
-    print('-h      Displays this help.')
-    print('--ofile (-o) sets output file name.')
-    print('        If no output file name (-o) is given the filename'
-          ' \'<prefix><topic>.mp4\' is used and default output codec is h264.')
-    print('        Multiple image topics are supported only when -o option is '
-          '_not_ used.')
-    print('        ',VIDEO_CONVERTER_TO_USE,' will guess the format according '
-          'to given extension.')
-    print('        Compressed and raw image messages are supported with mono8 '
-          'and bgr8/rgb8/bggr8/rggb8 formats.')
-    print('--rate  (-r) You may slow down or speed up the video.')
-    print('        Default is 1.0, that keeps the original speed.')
-    print('-s      Shows each and every image extracted from the rosbag file '
-          '(cv_bride is needed).')
-    print('--topic (-t) Only the images from topic "topic" are used for the '
-          'video output.')
-    print('-v      Verbose messages are displayed.')
-    print('--prefix (-p) set a output file name prefix othervise \'bagfile1\' '
-          'is used (if -o is not set).')
-    print('--start Optional start time in seconds.')
-    print('--end   Optional end time in seconds.')
+from cv_bridge import CvBridge
+from rosbags.highlevel import AnyReader
+from rosbags.interfaces import Connection
 
 
-class RosVideoWriter():
-    def __init__(self,
-                 fps=25.0,
-                 rate=1.0,
-                 topic="",
-                 output_filename ="",
-                 display= False,
-                 verbose = False,
-                 start = rospy.Time(0),
-                 end = rospy.Time(sys.maxsize)):
-        self.opt_topic = topic
-        self.opt_out_file = output_filename
-        self.opt_verbose = verbose
-        self.opt_display_images = display
-        self.opt_start = start
-        self.opt_end = end
-        self.rate = rate
-        self.fps = fps
-        self.opt_prefix= None
-        self.t_first={}
-        self.t_file={}
-        self.t_video={}
-        self.p_avconv = {}
+IS_VERBOSE = False
 
-    def parseArgs(self, args):
-        opts, opt_files = getopt.getopt(
-            args,"hsvr:o:t:p:",
-            ["fps=","rate=","ofile=","topic=","start=","end=","prefix="])
-        for opt, arg in opts:
-            if opt == '-h':
-                print_help()
-                sys.exit(0)
-            elif opt == '-s':
-                self.opt_display_images = True
-            elif opt == '-v':
-                self.opt_verbose = True
-            elif opt in ("--fps"):
-                self.fps = float(arg)
-            elif opt in ("-r", "--rate"):
-                self.rate = float(arg)
-            elif opt in ("-o", "--ofile"):
-                self.opt_out_file = arg
-            elif opt in ("-t", "--topic"):
-                self.opt_topic = arg
-            elif opt in ("-p", "--prefix"):
-                self.opt_prefix = arg
-            elif opt in ("--start"):
-                self.opt_start = rospy.Time(int(arg))
-                if(self.opt_verbose):
-                    print("starting at",self.opt_start.to_sec())
-            elif opt in ("--end"):
-                self.opt_end = rospy.Time(int(arg))
-                if(self.opt_verbose):
-                    print("ending at",self.opt_end.to_sec())
+
+def get_pix_fmt(msg_encoding: str) -> str:
+    """
+    Determine pixel format based on message encoding.
+
+    Args:
+        msg_encoding (str): The encoding of the message.
+
+    Returns:
+        str: The determined pixel format.
+
+    Notes:
+        This function attempts to infer the correct pixel format from a given
+        message encoding. It supports various formats, including gray, bgra,
+        and RGB variants. If an unsupported encoding is provided, it defaults
+        to yuv420p or prints warnings accordingly.
+
+    Raises:
+        AttributeError: If msg_encoding cannot be handled.
+    """
+    pix_fmt = "yuv420p"
+
+    if IS_VERBOSE:
+        print("[INFO] - AJB: Encoding:", msg_encoding)
+
+    try:
+        if msg_encoding.find("mono8") != -1:
+            pix_fmt = "gray"
+        elif msg_encoding.find("8UC1") != -1:
+            pix_fmt = "gray"
+        elif msg_encoding.find("bgra") != -1:
+            pix_fmt = "bgra"
+        elif msg_encoding.find("bgr8") != -1:
+            pix_fmt = "bgr24"
+        elif msg_encoding.find("bggr8") != -1:
+            pix_fmt = "bayer_bggr8"
+        elif msg_encoding.find("rggb8") != -1:
+            pix_fmt = "bayer_rggb8"
+        elif msg_encoding.find("rgb8") != -1:
+            pix_fmt = "rgb24"
+        elif msg_encoding.find("16UC1") != -1:
+            pix_fmt = "gray16le"
+        else:
+            print(f"[WARN] - Unsupported encoding: {msg_encoding}. "
+                  "Defaulting pix_fmt to {pix_fmt}...")
+    except AttributeError:
+        # Maybe this is a theora packet which is unsupported.
+        print(
+            "[ERROR] - Could not handle this format."
+            + " Maybe thoera packet? theora is not supported."
+        )
+        sys.exit(1)
+    if IS_VERBOSE:
+        print("[INFO] - pix_fmt:", pix_fmt)
+    return pix_fmt
+
+
+def get_topic_info(reader: AnyReader, topic_name: str) -> Tuple[int, str, int]:
+    """Return (message_count, msg_type, connection) for *topic_name*."""
+    conn = next((c for c in reader.connections if c.topic == topic_name), None)
+    if conn is None:
+        sys.exit(f"[ERROR] - Topic '{topic_name}' not found in bag.")
+    return conn.msgcount, conn.msgtype, conn
+
+
+def get_msg_format_from_rosbag(reader: AnyReader, connection: Connection) -> str:
+    """Peek at first message to derive ``msg.format``/``msg.encoding``."""
+    try:
+        _, _, raw = next(reader.messages(connections=[connection]))
+    except StopIteration:
+        return ""
+    msg = reader.deserialize(raw, connection.msgtype)
+    return getattr(msg, "format", getattr(msg, "encoding", ""))
+
+
+def save_image_from_rosbag(
+    cvbridge: CvBridge,
+    reader: AnyReader,
+    connection: Connection,
+    input_msg_type: str,
+    message_index: int = 0,
+) -> None:
+    """
+    Save an image from a ROS bag.
+
+    Args:
+        cvbridge: CvBridge instance for converting between OpenCV and ROS images.
+        reader: Rosbag reader.
+        connection: connection containing the image messages.
+        input_msg_type: The type of message in the topic, e.g. "sensor_msgs/msg/Image".
+        message_index (optional): The index of the message to save. Defaults to 0.
+
+    Returns:
+        None
+
+    Raises:
+        Exception: If an error occurs during image conversion or saving.
+
+    Notes:
+        This function queries a ROS 2 database for messages in a specified topic,
+        deserializes them into OpenCV images, and saves them as PNG files.
+    """
+    for i, (conn, ts, raw) in enumerate(reader.messages(connections=[connection])):
+        if i != message_index:
+            continue
+        msg = reader.deserialize(raw, connection.msgtype)
+        image_file_type = ".jpg" if getattr(msg, "format", "").lower() == "jpeg" else ".png"
+
+        if input_msg_type.endswith("CompressedImage"):
+            cv_image = cvbridge.compressed_imgmsg_to_cv2(msg, desired_encoding="passthrough")
+        else:
+            cv_image = cvbridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+
+        padded_number = f"{message_index:07d}"
+        output_filename = f"frames/{padded_number}{image_file_type}"
+        cv2.imwrite(output_filename, cv_image)
+        break
+    else:
+        print(f"[ERROR] - No message at index {message_index} for topic {conn.topic}")
+
+
+def check_and_create_folder(folder_path: str) -> None:
+    """
+    Check if a directory exists and create it if not.
+
+    Args:
+        folder_path: The path of the directory to be checked or created.
+
+    Returns:
+        None
+
+    Notes:
+        This function attempts to ensure that the specified directory is present.
+        If it does not exist, an attempt is made to create it. Any errors during
+        creation are logged and reported.
+
+    Raises:
+        OSError: If there's a problem creating the folder.
+    """
+    if not os.path.exists(folder_path):
+        try:
+            os.makedirs(folder_path)
+            if IS_VERBOSE:
+                print(f"[INFO] - Folder '{folder_path}' created successfully.")
+        except OSError as e:
+            print(f"[ERROR] - Failed to create folder '{folder_path}'. {e}")
+
+
+def clear_folder_if_non_empty(folder_path: str) -> bool:
+    """
+    Check if a folder is non-empty. If it is, remove all its contents.
+
+    Parameters:
+        folder_path: The path of the folder to check and clear.
+
+    Returns:
+        True if the folder was cleared, False if it was already empty.
+    """
+    # Check if the folder exists
+    if not os.path.exists(folder_path):
+        if IS_VERBOSE:
+            print(f"[WARN] - The folder '{folder_path}' does not exist.")
+        return False
+
+    # List all files and directories in the folder
+    contents = os.listdir(folder_path)
+    if contents:
+        for item in contents:
+            item_path = os.path.join(folder_path, item)
+            if os.path.isfile(item_path):
+                os.remove(item_path)  # Remove files
             else:
-                print("opz:", opt,'arg:', arg)
-
-        if (self.fps<=0):
-            print("invalid fps", self.fps)
-            self.fps = 1
-
-        if (self.rate<=0):
-            print("invalid rate", self.rate)
-            self.rate = 1
-
-        if(self.opt_verbose):
-            print("using ",self.fps," FPS")
-        return opt_files
+                shutil.rmtree(item_path)  # Remove directories
+        if IS_VERBOSE:
+            print(f"[INFO] - Cleared all contents from '{folder_path}'...")
+        return True
+    if IS_VERBOSE:
+        print(f"[INFO] - The folder '{folder_path}' is already empty.")
+    return False
 
 
-    # filter messages using type or only the opic we whant from the 'topic' argument
-    def filter_image_msgs(self, topic, datatype, md5sum, msg_def, header):
-        if(datatype=="sensor_msgs/CompressedImage"):
-            if (self.opt_topic != "" and self.opt_topic == topic) or self.opt_topic == "":
-                print("############# COMPRESSED IMAGE  ######################")
-                print(topic,' with datatype:', str(datatype))
-                print()
-                return True
+def create_video_from_images(image_folder: str, output_video: str, pix_fmt: str, framerate: int = 30):
+    """
+    Creates a video from a list of images in the specified folder.
 
-        if(datatype=="theora_image_transport/Packet"):
-            if (self.opt_topic != "" and self.opt_topic == topic) or self.opt_topic == "":
-                print(topic,' with datatype:', str(datatype))
-                print('!!! theora is not supported, sorry !!!')
-                return False
+    Args:
+        image_folder: The path to the folder containing the images.
+        output_video: The desired file name for the generated video.
+        pix_fmt: ffmpeg pixel format.
+        framerate (optional): The frame rate of the resulting video. Defaults to 30.
 
-        if(datatype=="sensor_msgs/Image"):
-            if (self.opt_topic != "" and self.opt_topic == topic) or self.opt_topic == "":
-                print("############# UNCOMPRESSED IMAGE ######################")
-                print(topic,' with datatype:', str(datatype))
-                print()
-                return True
+    Returns:
+        True if the operation was successful, False otherwise.
+    """
+    images = sorted(
+        [img for img in os.listdir(image_folder) if img.endswith((".png", ".jpg", ".jpeg"))],
+        key=lambda x: int(os.path.splitext(x)[0]),  # Sort by the numeric part of the filename
+    )
+    if not images:
+        print("[WARN] - No images found in the specified folder.")
+        return False
 
+    # Create a temporary text file listing all images
+    image_list_file = os.path.join(image_folder, "_images.txt")
+    with open(image_list_file, "w", encoding="utf-8") as f:
+        for path in images:
+            f.write(f"file '{path}'\n")
+
+    # Build the ffmpeg command
+    command = [
+        "ffmpeg",
+        "-loglevel",
+        "error" if not IS_VERBOSE else "info",
+        "-stats",
+        "-r",
+        str(framerate),  # Set frame rate
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        image_list_file,  # Input list of images
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        pix_fmt,
+        output_video,
+        "-y",
+    ]
+
+    if IS_VERBOSE:
+        print("[INFO] -", " ".join(command))
+    try:
+        subprocess.run(command, check=True)
+        print(f"[INFO] - Video written to {output_video}.")
+        os.remove(image_list_file)
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] - Error occurred: {e}")
+        os.remove(image_list_file)
         return False
 
 
-    def write_output_video(self, msg, topic, t, video_fmt, pix_fmt = ""):
-        timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-        # no data in this topic
-        if len(msg.data) == 0 :
-            return
-        # initiate data for this topic
-        if not topic in self.t_first :
-            self.t_first[topic] = t # timestamp of first image for this topic
-            self.t_video[topic] = 0
-            self.t_file[topic] = 0
-        # if multiple streams of images will start at different
-        # times the resulting video files will not be in sync
-        # current offset time we are in the bag file
-        self.t_file[topic] = (t-self.t_first[topic]).to_sec()
-        # fill video file up with images until we reache the current
-        # offset from the beginning of the bag file
-        while self.t_video[topic] < self.t_file[topic]/self.rate :
-            if not topic in self.p_avconv:
-                # we have to start a new process for this topic
-                if self.opt_verbose :
-                    print("Initializing pipe for topic", topic, "at time", t.to_sec())
-                if self.opt_out_file=="":
-                    out_file = (timestamp + "_" +
-                                self.opt_prefix +
-                                str(topic).replace("/", "_")+".mp4")
-                else:
-                    out_file = timestamp + "_" + self.opt_out_file
+def create_video_from_jpg(
+    reader: AnyReader,
+    connection: Connection,
+    output_video: str,
+    fps: float,
+    max_frames: int = -1,
+):
+    """
+    Save an video from a ROS bag with jpg compressed images into a mjpeg video file.
 
-                if self.opt_verbose :
-                    print("Using output file ", out_file, " for topic ", topic, ".")
+    Args:
+        reader: Rosbag reader.
+        connection: Connection containing the image messages.
+        output_video: Output video filepath.
+        fps: The desired video framerate.
+        max_frames (int, optional): stops export after this number of frames.
 
-                if video_fmt == MJPEG_VIDEO :
-                    cmd = [
-                        VIDEO_CONVERTER_TO_USE,
-                        '-v',
-                        '1',
-                        '-stats',
-                        '-r',str(self.fps),
-                        '-c',
-                        'mjpeg',
-                        '-f',
-                        'mjpeg',
-                        '-i',
-                        '-',
-                        '-an',
-                        out_file]
-                    self.p_avconv[topic] = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-                    if self.opt_verbose :
-                        print("Using command line:")
-                        print(cmd)
-                elif video_fmt == RAWIMAGE_VIDEO :
-                    size = str(msg.width)+"x"+str(msg.height)
-                    cmd = [
-                        VIDEO_CONVERTER_TO_USE,
-                        '-v',
-                        '1',
-                        '-stats',
-                        '-r',
-                        str(self.fps),
-                        '-f',
-                        'rawvideo',
-                        '-s',
-                        size,
-                        '-pix_fmt',
-                        pix_fmt,
-                        '-i',
-                        '-',
-                        '-an',
-                        out_file]
-                    self.p_avconv[topic] = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-                    if self.opt_verbose :
-                        print("Using command line:")
-                        print(cmd)
+    Returns:
+        None
 
-                else :
-                    print("Script error, unknown value for argument video_fmt in "
-                          "function write_output_video.")
-                    exit(1)
-            # send data to ffmpeg process pipe
-            self.p_avconv[topic].stdin.write(msg.data)
-            # next frame time
-            self.t_video[topic] += 1.0/self.fps
-
-    def addBag(self, filename):
-        if self.opt_display_images:
-            from cv_bridge import CvBridge, CvBridgeError
-            bridge = CvBridge()
-            cv_image = []
-
-        if self.opt_verbose :
-            print("Bagfile: {}".format(filename))
-
-        if not self.opt_prefix:
-            # create the output in the same folder and name as the bag file minu '.bag'
-            self.opt_prefix = bagfile[:-4]
-
-        #Go through the bag file
-        bag = rosbag.Bag(filename)
-        if self.opt_verbose :
-            print("Bag opened.")
-        # loop over all topics
-        for topic, msg, t in bag.read_messages(
-            connection_filter=self.filter_image_msgs,
-            start_time=self.opt_start,
-            end_time=self.opt_end):
-            try:
-                if msg.format.find("jpeg")!=-1 :
-                    if msg.format.find("8")!=-1 and (msg.format.find("rgb")!=-1 or msg.format.find("bgr")!=-1 or msg.format.find("bgra")!=-1 ):
-                        if self.opt_display_images:
-                            np_arr = np.fromstring(msg.data, np.uint8)
-                            cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )
-                    elif msg.format.find("mono8")!=-1 :
-                        if self.opt_display_images:
-                            np_arr = np.fromstring(msg.data, np.uint8)
-                            cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )
-                    elif msg.format.find("16UC1")!=-1 :
-                        if self.opt_display_images:
-                            np_arr = np.fromstring(msg.data, np.uint16)
-                            cv_image = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-                        self.write_output_video( msg, topic, t, MJPEG_VIDEO )
-                    else:
-                        print('unsupported jpeg format:', msg.format, '.', topic)
-
-            # has no attribute 'format'
-            except AttributeError:
-                try:
-                    pix_fmt=None
-                    if msg.encoding.find("mono8")!=-1 or msg.encoding.find("8UC1")!=-1:
-                        pix_fmt = "gray"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-
-                    elif msg.encoding.find("bgra")!=-1 :
-                        pix_fmt = "bgra"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-
-                    elif msg.encoding.find("bgr8")!=-1 :
-                        pix_fmt = "bgr24"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-                    elif msg.encoding.find("bggr8")!=-1 :
-                        pix_fmt = "bayer_bggr8"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg, "bayer_bggr8")
-                    elif msg.encoding.find("rggb8")!=-1 :
-                        pix_fmt = "bayer_rggb8"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg, "bayer_rggb8")
-                    elif msg.encoding.find("rgb8")!=-1 :
-                        pix_fmt = "rgb24"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-                    elif msg.encoding.find("16UC1")!=-1 or msg.encoding.find("mono16")!=-1:
-                        pix_fmt = "gray16le"
-                        if self.opt_display_images:
-                            cv_image = bridge.imgmsg_to_cv2(msg,"mono16")
-                    elif msg.encoding.find('yuv422')!=-1 :
-                        np_arr = np.fromstring(msg.data, np.uint8)
-                        mat = np.reshape(np_arr, (480,640,2))
-                        cv_image = cv2.cvtColor(mat, cv2.COLOR_YUV2BGR_UYVY)
-                        msg.data = cv_image.tostring()
-                        pix_fmt = 'bgr24'
-                    else:
-                        print('unsupported encoding:', msg.encoding, topic)
-                        #exit(1)
-                    if pix_fmt:
-                        self.write_output_video(
-                            msg,
-                            topic,
-                            t,
-                            RAWIMAGE_VIDEO,
-                            pix_fmt)
-
-                except AttributeError:
-                    # maybe theora packet
-                    # theora not supported
-                    if self.opt_verbose :
-                        print("Could not handle this format. Maybe thoera packet? "
-                              "theora is not supported.")
-                    pass
-            if self.opt_display_images:
-                cv2.imshow(topic, cv_image)
-                key=cv2.waitKey(1)
-                if key==1048603:
-                    exit(1)
-        if self.p_avconv == {}:
-            print("No image topics found in bag:", filename)
-        bag.close()
+    Raises:
 
 
+    Notes:
 
-if __name__ == '__main__':
-    #print()
-    #print('rosbag2video, by Maximilian Laiacker 2020 and Abel Gabor 2019')
-    #print()
+    """
+    cmd = [
+        "ffmpeg",
+        "-loglevel",
+        "error" if not IS_VERBOSE else "info",
+        "-stats",
+        "-r",
+        str(fps),
+        "-f",
+        "mjpeg",
+        "-i",
+        "-",  # stdin
+        "-c:v",
+        "copy",
+        "-an",
+        output_video,
+        "-y",
+    ]
+    if IS_VERBOSE:
+        print("[INFO] -", " ".join(cmd))
 
-    if len(sys.argv) < 2:
-        print('Please specify ros bag file(s)!')
-        print_help()
-        sys.exit(1)
-    else :
-        videowriter = RosVideoWriter()
-        try:
-            opt_files = videowriter.parseArgs(sys.argv[1:])
-        except getopt.GetoptError:
-            print_help()
-            sys.exit(2)
+    ffmpeg = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+
+    for i, (conn, ts, raw) in enumerate(reader.messages(connections=[connection])):
+        if 0 < max_frames <= i:
+            break
+        ffmpeg.stdin.write(raw)  # raw is already JPEG bytes
+        if IS_VERBOSE:
+            print(f"[INFO] - Streaming frame {i+1}", end="\r")
+    ffmpeg.stdin.close()
+    ffmpeg.wait()
+    print(f"[INFO] - Video written to {output_video}.")
 
 
-    # loop over all files
-    for files in range(0,len(opt_files)):
-        #First arg is the bag to look at
-        bagfile = opt_files[files]
-        videowriter.addBag(bagfile)
-    print("finished")
+if __name__ == "__main__":
+    # Parse commandline input arguments.
+    parser = argparse.ArgumentParser(
+        prog="rosbag2video",
+        description="Convert ROS bag (1/2) to video using ffmpeg.",
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", required=False, default=False,
+                        help="Run rosbag2video script in verbose mode.")
+    parser.add_argument("-r", "--rate", type=int, required=False, default=30,
+                        help="Video framerate")
+    parser.add_argument("-t", "--topic", type=str, required=True,
+                        help="Topic Name")
+    parser.add_argument("-i", "--ifile", type=str, required=True,
+                        help="Input File")
+    parser.add_argument("-o", "--ofile", type=str, required=False, default="output_video.mp4",
+                        help="Output File")
+    parser.add_argument("--save_images", action="store_true", required=False, default=False,
+                        help="Boolean flag for saving extracted .png frames in frames/")
+    parser.add_argument("--frames", type=int, required=False, default=-1,
+                        help="Limit the number of frames to export")
+    args = parser.parse_args(sys.argv[1:])
+
+    IS_VERBOSE = args.verbose
+
+    # Check if input fps is valid.
+    if args.rate <= 0:
+        print(f"[WARN] - Invalid rate {args.rate}; using 30 FPS.")
+        args.rate = 30
+
+    # Check if bag exists
+    bag_path = Path(args.ifile).expanduser().resolve()
+    if not bag_path.exists():
+        sys.exit(f"[ERROR] - Path '{bag_path}' does not exist.")
+
+    # Process the bag
+    with AnyReader([bag_path]) as reader:
+        message_count, msg_type, conn = get_topic_info(reader, args.topic)
+
+        msg_encoding = get_msg_format_from_rosbag(reader, conn)
+        if (
+            msg_type.endswith("CompressedImage")
+            and not args.save_images
+            and msg_encoding == "jpeg"
+        ):
+            # we can directly feed the jpg data to ffmpeg to create the video
+            create_video_from_jpg(reader, conn, args.ofile, args.rate, args.frames)
+            exit(0)
+
+        # else do the image export stuff - extract frames, then ffmpeg concat
+        FRAMES_FOLDER = "frames"
+        check_and_create_folder(FRAMES_FOLDER)
+        clear_folder_if_non_empty(FRAMES_FOLDER)
+
+        bridge = CvBridge()
+        for i in range(message_count if args.frames < 0 else min(message_count, args.frames)):
+            save_image_from_rosbag(bridge, reader, conn, msg_type, i)
+            print(f"[INFO] - Extracting [{i+1}/{message_count}] …", end="\r")
+            sys.stdout.flush()
+
+    # Construct video from image sequence
+    pix_fmt = get_pix_fmt(msg_encoding)
+    if not create_video_from_images(FRAMES_FOLDER, args.ofile, pix_fmt, framerate=args.rate):
+        print("[ERROR] - Could not generate video.")
+
+    # Keep or remove frames folder content based on --save-images flag.
+    if not args.save_images:
+        clear_folder_if_non_empty(FRAMES_FOLDER)
