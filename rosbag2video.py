@@ -379,7 +379,7 @@ if __name__ == "__main__":
         if (
             msg_type.endswith("CompressedImage")
             and not args.save_images
-            and msg_encoding == "jpeg"
+            and msg_encoding in ("jpeg", "jpg")
         ):
             # we can directly feed the jpg data to ffmpeg to create the video
             create_video_from_jpg(reader, conn, args.ofile, args.rate, args.frames)
