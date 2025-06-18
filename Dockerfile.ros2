@@ -5,7 +5,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ffmpeg \
         python3-pip \
-    && pip3 install rosbags
+    && pip3 install rosbags \
     && rm -rf /var/lib/apt/lists/*
 
 # Setting up working directory 
