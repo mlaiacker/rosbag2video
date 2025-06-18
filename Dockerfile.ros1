@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-noetic-rosbag* \
       python3-setuptools \
       python3-pip && \
-      pip3 install rospkg pycryptodome && \ 
+      pip3 install rospkg pycryptodome rosbags && \ 
     rm -rf /var/lib/apt/lists/*
 
 # Setting up working directory 
