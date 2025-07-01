@@ -138,8 +138,10 @@ def save_image_from_rosbag(
         deserializes them into OpenCV images, and saves them as PNG files.
     """
     for i, (conn, ts, raw) in enumerate(reader.messages(connections=[connection])):
-        if i != message_index:
-            continue
+
+        print(f"[INFO] - Extracting [{i+1}/{message_count}] …", end="\r")
+        sys.stdout.flush()
+
         msg = reader.deserialize(raw, connection.msgtype)
         image_file_type = ".jpg" if getattr(msg, "format", "").lower() == "jpeg" else ".png"
 
@@ -148,10 +150,10 @@ def save_image_from_rosbag(
         else:
             cv_image = cvbridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
 
-        padded_number = f"{message_index:07d}"
+        padded_number = f"{i:07d}"
         output_filename = f"frames/{padded_number}{image_file_type}"
         cv2.imwrite(output_filename, cv_image)
-        break
+        
     else:
         print(f"[ERROR] - No message at index {message_index} for topic {conn.topic}")
 
@@ -391,10 +393,8 @@ if __name__ == "__main__":
         clear_folder_if_non_empty(FRAMES_FOLDER)
 
         bridge = CvBridge()
-        for i in range(message_count if args.frames < 0 else min(message_count, args.frames)):
-            save_image_from_rosbag(bridge, reader, conn, msg_type, i)
-            print(f"[INFO] - Extracting [{i+1}/{message_count}] …", end="\r")
-            sys.stdout.flush()
+        save_image_from_rosbag(bridge, reader, conn, msg_type)
+        # for i in range(message_count if args.frames < 0 else min(message_count, args.frames)):
 
     # Construct video from image sequence
     pix_fmt = get_pix_fmt(msg_encoding)

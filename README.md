@@ -67,7 +67,7 @@ options:
 ```bash
 docker run -it --rm \
     --name rosbag2video_c \
-    -v ./:/rosbag2video_workspace \
+    -v .:/rosbag2video_workspace \
   rosbag2video:noetic bash
 ```
 
@@ -85,7 +85,7 @@ python3 rosbag2video.py -t <topic_name> -i <bag_file_name> -o <output_video_file
 ```bash
 docker run -it --rm \
     --name rosbag2video_c \
-    -v ./:/rosbag2video_workspace \
+    -v .:/rosbag2video_workspace \
   rosbag2video:humble bash
 ```
 
