@@ -8,7 +8,7 @@ post@mlaiacker.de
 
 with contributions from
 Abel Gabor 2019,
-Bey Hao Yun 2021
+Bey Hao Yun 2024
 baquatelle@gmail.com,
 beyhy94@gmail.com
 a.j.blight@leeds.ac.uk
@@ -16,64 +16,84 @@ a.j.blight@leeds.ac.uk
 
 ## **Install**
 
-**ffmpeg** is needed and can be installed on **Ubuntu** with:
+Build docker images using the commands below:
+
+1. Download `rosbag2video`:
 
 ```bash
-sudo apt install ffmpeg
+cd $HOME
 ```
 
-**ROS2** and **other stuff**.
+```bash
+git clone https://github.com/mlaiacker/rosbag2video
+```
+
+2. Build docker image for running ROS 1 `rosbag2video.py`:
 
 ```bash
-sudo apt install python3-sensor-msgs python3-opencv ros-foxy-rosbag2-transport
+docker build -f Dockerfile.ros1 -t rosbag2video:noetic .
+```
+
+3. Build docker image for running ROS 2 `ros2bag2video.py`:
+
+```bash
+docker build -f Dockerfile.ros2 -t rosbag2video:humble .
 ```
 
 ## **Usage**
 
 ``` bash
-ros2bag2video.py [--fps 25] [--rate 1.0] [-o outputfile] [-v] [-s] [-t topic] bagfile1
+rosbag2video [-h] [-v] [-r RATE] -t TOPIC -i IFILE [-o OFILE] [--save_images]
+                    [--frames FRAMES]
 
-Converts image sequence(s) in ros bag file(s) to video file(s) with fixed frame rate using ffmpeg
-ffmpeg needs to be installed!
+Convert ROS bag (1/2) to video using ffmpeg.
 
---fps   Sets FPS value that is passed to ffmpeg
-            Default is 25.
--h      Displays this help.
---ofile (-o) sets output file name.
-        If no output file name (-o) is given the filename 'output.mp4' is used.
---rate  (-r) You may slow down or speed up the video.
-        Default is 1.0, that keeps the original speed.
--s      Shows each and every image extracted from the rosbag file.
---topic (-t) Only the images from topic "topic" are used for the video output.
--v      Verbose messages are displayed.
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Run rosbag2video script in verbose mode.
+  -r RATE, --rate RATE  Video framerate
+  -t TOPIC, --topic TOPIC
+                        Topic Name
+  -i IFILE, --ifile IFILE
+                        Input File
+  -o OFILE, --ofile OFILE
+                        Output File
+  --save_images         Boolean flag for saving extracted .png frames in frames/
+  --frames FRAMES       Limit the number of frames to export
 ```
 
-## **Example Output**
+### **ROS 1**
 
 ```bash
-# Source ROS2 Humble
+docker run -it --rm \
+    --name rosbag2video_c \
+    -v ./:/rosbag2video_workspace \
+  rosbag2video:noetic bash
+```
+
+```bash
+source /opt/ros/noetic/setup.bash
+```
+
+```bash
+python3 rosbag2video.py -t <topic_name> -i <bag_file_name> -o <output_video_file_name>
+# Eg. python3 rosbag2video.py -t /cam0/image_raw -i ar_tracking_1.bag -o myvideo.mp4
+```
+
+### **ROS 2**
+
+```bash
+docker run -it --rm \
+    --name rosbag2video_c \
+    -v ./:/rosbag2video_workspace \
+  rosbag2video:humble bash
+```
+
+```bash
 source /opt/ros/humble/setup.bash
+```
 
-# Run the script.  Rate greater than 5.0 leads to dropped frames on the test PC.
-./ros2bag2video.py --fps=25 --rate=5.0 -t /camera_node/image_raw/compressed ~/Documents/rosbag2_2023_04_19-14_44_56
-
-
-FPS (int) =  25
-Rate (float) =  1.0
-Topic (str) =  /camera_node/image_raw/compressed
-Output File (str) =  output.mp4
-Verbose (bool) =  False
-bag_file =  rosbag2_2023_04_19-14_44_56/
-[INFO] [1619616391.700087224] [rosbag2_storage]: Opened database './rosbag2_2023_04_19-14_44_56/rosbag2_2023_04_19-14_44_56.db3' for READ_ONLY.
-[INFO] [1619616392.055535299] [ros2bag2videos]: Image Received [1/28]
-[INFO] [1619616392.077294702] [ros2bag2videos]: Image Received [2/28]
-[INFO] [1619616392.299152538] [ros2bag2videos]: Image Received [3/28]
-[INFO] [1619616392.792717810] [ros2bag2videos]: Image Received [4/28]
-[INFO] [1619616393.268813798] [ros2bag2videos]: Image Received [5/28]
-[INFO] [1619616393.724949415] [ros2bag2videos]: Image Received [6/28]
-[INFO] [1619616394.199588269] [ros2bag2videos]: Image Received [7/28]
-[INFO] [1619616394.667638765] [ros2bag2videos]: Image Received [8/28]
-...
-Writing to output file, output.mp4
-
+```bash
+python3 rosbag2video.py -t <topic_name> -i <bag_folder_name> -o <output_video_file_name>
+# Eg. python3 rosbag2video.py -t /cam0/image_raw -i rosbag2_2024_10_11-19_45_28 -o myvideo.mp4
 ```

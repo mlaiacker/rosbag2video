@@ -1,0 +1,19 @@
+FROM ros:humble-perception
+
+# Install system packages
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        python3-pip \
+    && pip3 install rosbags \
+    && rm -rf /var/lib/apt/lists/*
+
+# Setting up working directory 
+WORKDIR /rosbag2video_workspace
+
+# Add user
+RUN adduser --quiet --disabled-password user
+RUN chown -R user:user /rosbag2video_workspace
+USER user
+
+ENTRYPOINT ["/ros_entrypoint.sh"]

@@ -1,0 +1,24 @@
+FROM ros:noetic-perception
+
+# Install system packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ffmpeg \
+      ros-noetic-rosbag* \
+      python3-setuptools \
+      python3-pip && \
+      pip3 install rospkg pycryptodome rosbags && \ 
+    rm -rf /var/lib/apt/lists/*
+
+# Setting up working directory 
+WORKDIR /rosbag2video_workspace
+
+# Add user
+RUN useradd -ms /bin/bash ubuntu
+RUN echo 'ubuntu:asdf' | chpasswd
+RUN adduser ubuntu sudo
+RUN chown -R ubuntu /rosbag2video_workspace
+USER ubuntu
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+
+
