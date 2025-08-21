@@ -394,7 +394,6 @@ if __name__ == "__main__":
 
         bridge = CvBridge()
         save_image_from_rosbag(bridge, reader, conn, msg_type)
-        # for i in range(message_count if args.frames < 0 else min(message_count, args.frames)):
 
     # Construct video from image sequence
     pix_fmt = get_pix_fmt(msg_encoding)
