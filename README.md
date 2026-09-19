@@ -1,10 +1,8 @@
 # **rosbag2video**
 
 > [!NOTE]
-> rosbag2video.py
-> rosbag to video file conversion tool
-> by Maximilian Laiacker 2025
-> post@mlaiacker.de
+> A tool that converts rosbag to video files
+> by [Maximilian Laiacker 2025](post@mlaiacker.de)
 
 ## **Install**
 
