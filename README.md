@@ -23,7 +23,7 @@ docker build -f docker/Dockerfile.ros1 -t rosbag2video:noetic .
 3. **Build** docker image for running ROS 2 `ros2bag2video.py`:
 
 ```bash
-docker build -f docker/Dockerfile.ros2 -t rosbag2video:humble .
+docker build -f docker/Dockerfile.ros2 -t rosbag2video:lyrical .
 ```
 
 ## **Usage**
@@ -31,7 +31,7 @@ docker build -f docker/Dockerfile.ros2 -t rosbag2video:humble .
 By default it will extract all compressed image topics inside the bag directory with the name of <topic>.mp4 ('/' inside the topic name will be replaced by '_') as mjpeg encoded video with 30fps.
 
 > [!NOTE]
-> Mostly tested with bags containing 
+> Mostly tested with bags containing:
 > ```bash
 > msg_type: sensor_msgs/msg/CompressedImage msg_encoding: jpeg
 > ```
@@ -80,11 +80,7 @@ python3 rosbag2video.py -t <topic_name> -i <bag_file_name> -o <output_video_file
 docker run -it --rm \
     --name rosbag2video_c \
     -v .:/rosbag2video_workspace \
-  rosbag2video:humble bash
-```
-
-```bash
-source /opt/ros/humble/setup.bash
+  rosbag2video:lyrical bash -c "source /opt/ros/lyrical/setup.bash && /bin/bash"
 ```
 
 Example: extract all image topics form one ore more rosbag2 directories or bags
