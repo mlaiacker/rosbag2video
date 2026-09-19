@@ -50,13 +50,13 @@ Or use docker if you want to:
 2. Build docker image for running ROS 1 `rosbag2video.py`:
 
 ```bash
-docker build -f Dockerfile.ros1 -t rosbag2video:noetic .
+docker build -f docker/Dockerfile.ros1 -t rosbag2video:noetic .
 ```
 
 3. Build docker image for running ROS 2 `ros2bag2video.py`:
 
 ```bash
-docker build -f Dockerfile.ros2 -t rosbag2video:humble .
+docker build -f docker/Dockerfile.ros2 -t rosbag2video:humble .
 ```
 
 ## **Usage**
