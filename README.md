@@ -1,59 +1,28 @@
 # **rosbag2video**
 
-```text
-rosbag2video.py
-rosbag to video file conversion tool
-by Maximilian Laiacker 2025
-post@mlaiacker.de
-
-with contributions from
-David Silva 2025,
-Abel Gabor 2019,
-Bey Hao Yun 2024,
-baquatelle@gmail.com,
-beyhy94@gmail.com
-a.j.blight@leeds.ac.uk
-```
+> [!NOTE]
+> rosbag2video.py
+> rosbag to video file conversion tool
+> by Maximilian Laiacker 2025
+> post@mlaiacker.de
 
 ## **Install**
 
 Build docker images using the commands below:
 
-1. Download `rosbag2video`:
-
-install python3
+1. **Download** `rosbag2video`:
 
 ```bash
-cd $HOME
+git clone https://github.com/mlaiacker/rosbag2video --depth 1 --single-branch
 ```
 
-```bash
-git clone https://github.com/mlaiacker/rosbag2video
-```
-
-install dependencies
-
-```bash
-sudo apt install ffmpeg
-pip install rosbags
-pip install opencv-python
-```
-
-Mostly tested with bags containing 
-```bash
-msg_type: sensor_msgs/msg/CompressedImage msg_encoding: jpeg
-```
-
-
-Or use docker if you want to:
-
-2. Build docker image for running ROS 1 `rosbag2video.py`:
+2. **Build** docker image for running ROS 1 `rosbag2video.py`:
 
 ```bash
 docker build -f docker/Dockerfile.ros1 -t rosbag2video:noetic .
 ```
 
-3. Build docker image for running ROS 2 `ros2bag2video.py`:
+3. **Build** docker image for running ROS 2 `ros2bag2video.py`:
 
 ```bash
 docker build -f docker/Dockerfile.ros2 -t rosbag2video:humble .
@@ -63,6 +32,11 @@ docker build -f docker/Dockerfile.ros2 -t rosbag2video:humble .
 
 By default it will extract all compressed image topics inside the bag directory with the name of <topic>.mp4 ('/' inside the topic name will be replaced by '_') as mjpeg encoded video with 30fps.
 
+> [!NOTE]
+> Mostly tested with bags containing 
+> ```bash
+> msg_type: sensor_msgs/msg/CompressedImage msg_encoding: jpeg
+> ```
 
 ``` bash
 usage: rosbag2video [-h] [-v] [-r RATE] [-t TOPIC] [-o OFILE] [--save_images] [--frames FRAMES] rosbag [rosbag ...]
